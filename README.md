@@ -4,5 +4,5 @@ This requires BepInEx to run properly, check out the PunkMods https://github.com
 
 Look at txt file for general usage of this Mod. The .HTML document allows for an easier experience creating your intended weapon using base game assets and code, slightly modding the properties to your liking. Once you copy/install the "WeaponForge.dll" in "...\PUNK Playtest\BepInEx\plugins". Run the game once and close it. The Plugins folder should now contain the weapons folder. The mod creates the README.txt and ExamplePopper.json in this folder to show you an example of the mod. The weapons you create should show up as a starting weapon choice near the end of the list. If you havent unlocked anything, its past all the question marks.
 
-This mod is very new, probably has a ton of bugs available. I may or may-not fix them.
+This mod is very new, probably has a ton of bugs available. I may or may-not fix them. My next goal is making these weapons available in the gaget positions (1 2 3). We'll see.
 
