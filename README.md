@@ -1,10 +1,10 @@
-================================================================
+----------------------------------------------------------------
  WEAPON FORGE - HOW TO MAKE CUSTOM WEAPONS WITH JSON
-================================================================
+----------------------------------------------------------------
 
 Weapon Forge lets you create new starting weapons for PUNK by
 writing small JSON text files. No programming needed. The DLL does
-the work; the JSON files are the weapons.
+the work; the JSON files are the weapons. For an easier time use the .HTML document to create the JSON files.
 
 ----------------------------------------------------------------
  1. HOW IT WORKS
