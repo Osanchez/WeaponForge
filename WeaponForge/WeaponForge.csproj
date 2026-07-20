@@ -97,8 +97,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="WeaponForgePlugin.cs" />
+    <Compile Include="ForgeStartupPatch.cs" />
     <Compile Include="ForgeLoadoutPatch.cs" />
+    <Compile Include="ForgeLootPatch.cs" />
+    <Compile Include="ForgeRegistry.cs" />
     <Compile Include="WeaponBuilder.cs" />
+    <Compile Include="VisualCustomizer.cs" />
+    <Compile Include="RgbAnimator.cs" />
+    <Compile Include="StarterFiles.cs" />
     <Compile Include="JsonFieldMapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
