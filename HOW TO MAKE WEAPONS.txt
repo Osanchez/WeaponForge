@@ -30,9 +30,18 @@ YES - editing the JSON is enough. Change a number, save, restart
 the game, and the weapon behaves differently. The DLL never needs
 to be rebuilt for stat/physics/property changes.
 
-IMPORTANT: files are read when the loadout screen first loads.
-Edits made while the game is running do NOT hot-reload - restart
-the game (or fully quit to desktop and relaunch) to see changes.
+IMPORTANT: files are read at game startup (and when the loadout
+screen loads). Edits made while the game is running do NOT hot-
+reload - restart the game (or fully quit to desktop and relaunch)
+to see changes.
+
+SAVING MID-RUN: custom weapons are registered with the game at
+startup, so you can save-and-quit with one equipped and use
+"Continue" later without the load hanging. (This is why weapons are
+read at startup, not only on the ship-select screen.) If you ADD or
+RENAME a weapon file, then load an old save that had the old weapon
+equipped, that old id won't exist anymore - keep a file around (same
+"name") as long as any save still uses it.
 
 ----------------------------------------------------------------
  2. QUICK START
@@ -64,7 +73,22 @@ Search the log for "WeaponForge".
   "template": "Module Weapon White Popper",
                                   <- REQUIRED. Which game weapon to
                                      clone. Decides base behavior,
-                                     projectile model, sounds.
+                                     projectile model, sounds. Can be
+                                     a weapon module OR a raw weapon
+                                     asset incl. enemy weapons (sec 4).
+  "slot": "primary",              <- Optional. Where it equips:
+                                     "primary" (left click, default),
+                                     "secondary" (right click), or
+                                     "gadget1"/"gadget2"/"gadget3"
+                                     (the 1/2/3 keys). See section 4b.
+  "gadgetShell": "...",           <- Optional, gadgets only. Which
+                                     gadget module to clone. (sec 4b)
+  "source": "starter",            <- Optional. Where it can appear:
+                                     "starter" (new-game pick, default),
+                                     "loot" (drops from crates), or
+                                     "starterAndLoot" (both). See 4c.
+  "lootWeight": 10,               <- Optional, loot only. Drop chance
+                                     vs other crate modules (default 10).
   "baseLoadout": "Starter_Popper",<- Optional. Which starting ship
                                      loadout to clone for the ship
                                      and module slots.
@@ -119,9 +143,97 @@ PHYSICS WEAPONS (heavy lobbed objects with gravity/physics):
                                      real asset name is Tech)
 
 MINION SPAWNERS (pet/drone weapons):
-  
+
   Module Weapon Fly
-  
+
+
+ENEMY / RAW WEAPONS (advanced):
+You can also use a raw weapon asset directly as the template, incl.
+weapons enemies use. Examples:
+  Weapon_Grunt          Weapon_Raven         Weapon_Zipper
+  Weapon_Fly            Weapon_Fly_Laser     Weapon_PhantomDrone
+  Weapon_Turret_Laser   Weapon_Turret_Worm   Weapon_CrossQueen
+  Weapon Enemy Soldier  Weapon Enemy DroneMissile
+  Weapon Enemy Queen Bomb   Weapon Enemy Turret Sniper
+  Weapon Crawler Laser  Weapon FireBall      Weapon Fish
+  Weapon Drone          Weapon BouncerRed
+  Weapon Rocket Rookie  Weapon Rocket Soldier  Weapon SoldierPurple
+Names come from the AssetRipper export (drop the ".asset"). Both
+"Weapon_Name" and "Weapon Name" styles exist; use the exact name.
+Most load fine; if one isn't in memory at the menu the log says so.
+
+----------------------------------------------------------------
+ 4b. SLOTS - PRIMARY, SECONDARY & GADGETS
+----------------------------------------------------------------
+
+"slot" decides where the weapon equips:
+  "primary"    left click (default) - replaces the ship's main gun
+  "secondary"  right click
+  "gadget1/2/3"  the 1, 2 and 3 keys
+
+Left/right-click weapons and gadgets are different MODULE TYPES in
+this game, so a normal weapon can't go in a gadget slot and a gadget
+can't go in a weapon slot. Weapon Forge handles this for you: pick a
+"slot" and it builds the correct module type around your weapon.
+
+GADGETS fire on a key press with a cooldown, not held-down fire:
+  - Cooldown  = 1 / fireRate  (higher fireRate = faster re-use)
+  - Cost      = "cost" of "resourceUsed" per activation
+  So set those weapon fields to tune how the gadget feels.
+  - A gadget is added ALONGSIDE the base loadout's primary weapon
+    (you keep a normal gun plus your gadget).
+  - "gadgetShell" (optional) picks which existing gadget module to
+    clone for its slot fit + icon. Default "Module Active Purple
+    AirMines". Others: Module Active Purple Surge / Purple Teardrop /
+    Caps Igniter / Caps Vial / Electron Circuit.
+
+Example gadget (rocket on key 1):
+  {
+    "name": "PocketRocket",
+    "template": "Module Weapon Caps Rocket",
+    "slot": "gadget1",
+    "weapon": { "fireRate": 1.5, "cost": 3,
+                "resourceUsed": "Resource White",
+                "damage": { "amount": 20, "damageType": "White" } }
+  }
+
+----------------------------------------------------------------
+ 4c. SOURCE - STARTER WEAPON, LOOT DROP, OR BOTH
+----------------------------------------------------------------
+
+"source" controls where your weapon can show up:
+  "starter"         only as a pick on the new-game loadout screen
+                    (the default)
+  "loot"            only as a drop - it appears inside the module
+                    crates you smash open during a run, never on the
+                    start screen
+  "starterAndLoot"  both
+
+HOW LOOT WORKS: the game's crates roll their module from a weighted
+pool. A loot-enabled Forge weapon is added into those crate module
+pools, so it can appear in any crate that drops modules. It does NOT
+get added to resource/scrap drops or to enemy-specific drops - only
+to crates that already drop modules.
+
+"lootWeight" (default 10) is how likely your weapon is compared to
+the other modules in that pool. The stock modules sit around weight
+10, so 10 is "as common as a normal module", 20 is twice as likely,
+5 is half as likely.
+
+NOTE: loot and starter both still register the weapon at startup
+(so saves keep working). "loot" just hides it from the start screen.
+This does NOT add the weapon to the SHOP - only to smashable crate
+drops. Shop injection is a separate system and isn't supported yet.
+
+Example loot-only weapon:
+  {
+    "name": "RareCannon",
+    "displayName": "RARE CANNON",
+    "template": "Module Weapon Purple Rocket",
+    "source": "loot",
+    "lootWeight": 5,
+    "weapon": { "damage": { "amount": 30, "damageType": "Purple" } }
+  }
 
 ----------------------------------------------------------------
  5. WEAPON FIELDS - ALL WEAPON TYPES
@@ -160,11 +272,31 @@ These go inside the "weapon": { } block and work on every type.
   }
   "aimAssistData": { "enabled": true, "maxAngle": 15,
                      "isPredictive": true }
+  "projectileColor": "#33ddff"
+                            Recolor the projectile or beam. Accepts a
+                            hex value ("#33ddff"), an HTML color name
+                            ("cyan"), a game color ("ColorBlue"), or
+                            "rainbow" for an animated RGB cycle.
+                            Projectiles: tints sprites/trails/particles.
+                            Hitscan: tints the beam sprite, light, and
+                            impact particle.
+  "rainbowSpeed": 0.5       Rainbow only: hue cycles per second (0.5 =
+                            a full rainbow every 2 seconds). Default 0.5.
+  "projectileScale": 1.5    Size multiplier. Projectiles: bigger shot
+                            AND a matching larger hit radius. Hitscan:
+                            beam thickness. Minions are only recolored,
+                            never scaled (scaling breaks their AI).
 
 Sound fields (shootSfx, startSfx, warmupSfx, releaseSfx...) exist
 but must exactly match sound ids already in the game's audio
 database - wrong ids are silent, not broken. Easiest is to keep
 the template's sounds.
+
+Projectile/beam color is NOT tied to the damage resource in this
+game - changing damageType recolors damage numbers/UI only, not the
+shot. Use "projectileColor" to actually recolor the shot. Weapon
+Forge clones the visual per-weapon, so recoloring never affects the
+stock weapon you cloned from.
 
 ----------------------------------------------------------------
  6. TYPE-SPECIFIC FIELDS
@@ -275,7 +407,12 @@ grid/inventory UI and what it grants when equipped:
                                      top-level displayName)
     "description": "...",
     "level": 2,
-    "icon": "<sprite asset name>",   Steal any game sprite.
+    "icon": "HUD_GridTiles_8",       Module card icon. These are the
+                                     weapon icon sprites; the builder
+                                     page has a dropdown that picks one
+                                     by weapon name. A few: Popper 13,
+                                     Bolt 1, Dart/Rocket 29, Shotgun 7,
+                                     Laser 8, Air Mine 25, Drone 19.
     "color": "ColorPurple",          Card color tint - a game
                                      ColorAsset name OR a hex value
                                      like "#7fd4ff" (a new color is
@@ -283,9 +420,14 @@ grid/inventory UI and what it grants when equipped:
     "resourceGain": {                Change which resource (and how
       "resource": "Resource White",  much) equipping this weapon
       "amount": 12                   adds to your ship. Overrides
-    }                                the template's bonus (e.g. the
+    },                               the template's bonus (e.g. the
                                      Caps Laser normally grants
                                      orange/caps capacity).
+    "powerNodes": 6                  How many power cores can attach to
+                                     the module (the "0 / N" cap in the
+                                     grid). A number = fixed; or a range
+                                     { "min": 4, "max": 8 } to roll
+                                     randomly. Popper is normally 2-3.
   }
 
 Game ColorAsset names:
@@ -299,7 +441,11 @@ Game ColorAsset names:
   Resource White      white / stamina
   Resource Caps       orange / caps
   Resource Purple     purple
-  Resource Electron   electric/blue
+  Resource Electron   electric / blue
+  Resource Health     red / health
+  Resource Money      yellow / money
+  Resource Fuel       fuel
+  Resource Tech       tech
 
 Shorthand works too: "damageType": "White" finds Resource White.
 Resources decide BOTH what ammo you drain (resourceUsed) and what

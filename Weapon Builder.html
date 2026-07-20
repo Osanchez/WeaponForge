@@ -154,6 +154,35 @@
           <optgroup label="Minion spawner (pets)">
             <option>Module Weapon Fly</option>
           </optgroup>
+          <optgroup label="Enemy weapons (advanced - raw weapon assets)">
+            <option>Weapon_Grunt</option>
+            <option>Weapon_Raven</option>
+            <option>Weapon_Zipper</option>
+            <option>Weapon_Fly</option>
+            <option>Weapon_Fly_Laser</option>
+            <option>Weapon_Fly_Dad</option>
+            <option>Weapon_PhantomDrone</option>
+            <option>Weapon_Turret_Laser</option>
+            <option>Weapon_Turret_Worm</option>
+            <option>Weapon_CrossQueen</option>
+            <option>Weapon_Laser_CrossQueen</option>
+            <option>Weapon_CrossJock</option>
+            <option>Weapon_CrossAlpha</option>
+            <option>Weapon Enemy Soldier</option>
+            <option>Weapon Enemy DroneMissile</option>
+            <option>Weapon Enemy Queen Bomb</option>
+            <option>Weapon Enemy Turret Sniper</option>
+            <option>Weapon Crawler Laser</option>
+            <option>Weapon FireBall</option>
+            <option>Weapon Fish</option>
+            <option>Weapon Drone</option>
+            <option>Weapon BouncerRed</option>
+            <option>Weapon Rocket Rookie</option>
+            <option>Weapon Rocket Soldier</option>
+            <option>Weapon Rocket JockRocket</option>
+            <option>Weapon SoldierPurple</option>
+            <option>Weapon SoldierTech</option>
+          </optgroup>
         </select>
         <em>decides behavior + visuals</em></label>
       <label class="field"><span>baseLoadout</span>
@@ -167,6 +196,39 @@
           <option>Starter_Worm_Drone</option>
         </select>
         <em>ship / slots cloned from</em></label>
+      <label class="field"><span>slot</span>
+        <select id="f-slot" data-path="slot">
+          <option value="primary">primary (left click)</option>
+          <option value="secondary">secondary (right click)</option>
+          <option value="gadget1">gadget 1 (key 1)</option>
+          <option value="gadget2">gadget 2 (key 2)</option>
+          <option value="gadget3">gadget 3 (key 3)</option>
+        </select>
+        <em>where the weapon is equipped</em></label>
+      <label class="field" id="f-gadgetshell-field">
+        <span>gadget shell (optional)</span>
+        <select data-path="gadgetShell">
+          <option value="">Module Active Purple AirMines (default)</option>
+          <option>Module Active Purple AirMines</option>
+          <option>Module Active Purple Surge</option>
+          <option>Module Active Purple Teardrop</option>
+          <option>Module Active Caps Igniter</option>
+          <option>Module Active Caps Vial</option>
+          <option>Module Active Electron Circuit</option>
+        </select>
+        <em>gadget module to clone for slot fit + icon</em></label>
+      <label class="field"><span>source</span>
+        <select id="f-source" data-path="source">
+          <option value="starter">starter (new-game pick)</option>
+          <option value="starterAndLoot">starter + loot drops</option>
+          <option value="loot">loot only (drops from crates)</option>
+        </select>
+        <em>where the weapon can show up</em></label>
+      <label class="field" id="f-lootweight-field">
+        <span>loot weight (optional)</span>
+        <input type="number" step="any" data-path="lootWeight"
+               placeholder="10">
+        <em>drop chance vs other crate modules (default 10)</em></label>
     </div>
     <label class="field" style="margin-top:10px">
       <span>description</span>
@@ -183,6 +245,7 @@
           <option value="">keep template</option>
           <option>Resource White</option><option>Resource Caps</option>
           <option>Resource Purple</option><option>Resource Electron</option>
+            <option>Resource Health</option><option>Resource Money</option>
         </select></label>
       <label class="field"><span>fireRate</span>
         <input type="number" step="any" data-path="weapon.fireRate">
@@ -216,6 +279,7 @@
           <option value="">keep template</option>
           <option>Resource White</option><option>Resource Caps</option>
           <option>Resource Purple</option><option>Resource Electron</option>
+            <option>Resource Health</option><option>Resource Money</option>
         </select>
         <em>ammo tank drained</em></label>
       <label class="field"><span>cost</span>
@@ -238,6 +302,7 @@
             <option value="">keep template</option>
             <option>Resource White</option><option>Resource Caps</option>
             <option>Resource Purple</option><option>Resource Electron</option>
+            <option>Resource Health</option><option>Resource Money</option>
           </select></label>
       </div>
     </details>
@@ -261,6 +326,7 @@
             <option value="">keep template</option>
             <option>Resource White</option><option>Resource Caps</option>
             <option>Resource Purple</option><option>Resource Electron</option>
+            <option>Resource Health</option><option>Resource Money</option>
           </select></label>
       </div>
     </details>
@@ -280,6 +346,40 @@
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
           </select></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">projectile / beam visuals
+        <span class="tag">recolor &amp; resize the shot</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>color (game presets)</span>
+          <select id="f-proj-color-preset">
+            <option value="">-- pick a game color --</option>
+            <option value="rainbow">RGB / rainbow (animated!)</option>
+            <option value="ColorWhite">White</option>
+            <option value="ColorOrange">Orange (caps)</option>
+            <option value="ColorPurple">Purple</option>
+            <option value="ColorBlue">Blue (electron)</option>
+            <option value="ColorRed">Red</option>
+            <option value="ColorYellow">Yellow</option>
+            <option value="Color Tech">Tech</option>
+            <option value="ColorPower">Power</option>
+          </select>
+          <em>fills the color field below</em></label>
+        <label class="field"><span>projectileColor (name, #hex, or rainbow)</span>
+          <input type="text" id="f-proj-color-custom"
+                 data-path="weapon.projectileColor"
+                 placeholder="cyan, #33ddff, or rainbow">
+          <em>tints projectile/beam; "rainbow" cycles colors</em></label>
+        <label class="field"><span>rainbowSpeed</span>
+          <input type="number" step="any" data-path="weapon.rainbowSpeed"
+                 placeholder="0.5">
+          <em>rainbow only: hue cycles per second (default 0.5)</em></label>
+        <label class="field"><span>projectileScale</span>
+          <input type="number" step="any" data-path="weapon.projectileScale"
+                 placeholder="1.0">
+          <em>size multiplier (beam = thickness; minions not scaled)</em></label>
       </div>
     </details>
   </section>
@@ -514,6 +614,7 @@
             <option value="">keep template</option>
             <option>Resource White</option><option>Resource Caps</option>
             <option>Resource Purple</option><option>Resource Electron</option>
+            <option>Resource Health</option><option>Resource Money</option>
           </select></label>
       </div>
     </details>
@@ -571,8 +672,44 @@
           <input type="text" data-path="module.displayName"></label>
         <label class="field"><span>level</span>
           <input type="number" step="1" data-path="module.level"></label>
-        <label class="field"><span>icon</span>
-          <input type="text" data-path="module.icon" placeholder="sprite asset name"></label>
+        <label class="field"><span>icon (pick a weapon's icon)</span>
+          <select id="f-icon-preset">
+            <option value="">-- keep template icon --</option>
+            <optgroup label="Weapons">
+              <option value="HUD_GridTiles_13">Popper</option>
+              <option value="HUD_GridTiles_1">Bolt</option>
+              <option value="HUD_GridTiles_29">Dart / Rocket</option>
+              <option value="HUD_GridTiles_7">Shotgun</option>
+              <option value="HUD_GridTiles_33">Blades</option>
+              <option value="HUD_GridTiles_24">Debris / Flame</option>
+              <option value="HUD_GridTiles_2">Disc Gun</option>
+              <option value="HUD_GridTiles_0">Worm</option>
+              <option value="HUD_GridTiles_8">Laser</option>
+              <option value="HUD_GridTiles_9">Marbles</option>
+              <option value="HUD_GridTiles_38">Flack</option>
+              <option value="HUD_GridTiles_3">Shard</option>
+              <option value="HUD_GridTiles_31">Zapper</option>
+              <option value="HUD_GridTiles_30">Toroid</option>
+              <option value="HUD_GridTiles_36">Loon</option>
+              <option value="HUD_GridTiles_37">Can</option>
+              <option value="HUD_GridTiles_16">Cluster Cube</option>
+              <option value="HUD_GridTiles_27">Dandelion</option>
+            </optgroup>
+            <optgroup label="Gadgets">
+              <option value="HUD_GridTiles_25">Air Mine / Igniter</option>
+              <option value="HUD_GridTiles_28">Vial</option>
+              <option value="HUD_GridTiles_19">Drone</option>
+              <option value="HUD_GridTiles_26">Phantom Drone</option>
+              <option value="HUD_GridTiles_32">Circuit</option>
+              <option value="HUD_GridTiles_22">Fuel Generator</option>
+              <option value="HUD_GridTiles_35">Surge</option>
+              <option value="HUD_GridTiles_21">Teardrop</option>
+            </optgroup>
+          </select>
+          <em>fills the icon field below</em></label>
+        <label class="field"><span>icon (sprite asset name)</span>
+          <input type="text" id="f-icon-custom" data-path="module.icon"
+                 placeholder="e.g. HUD_GridTiles_13"></label>
         <label class="field"><span>card color (game presets)</span>
           <select id="f-color-preset">
             <option value="">-- pick a game color --</option>
@@ -599,11 +736,16 @@
             <option value="">keep template</option>
             <option>Resource White</option><option>Resource Caps</option>
             <option>Resource Purple</option><option>Resource Electron</option>
+            <option>Resource Health</option><option>Resource Money</option>
           </select>
           <em>which tank equipping this weapon fills</em></label>
         <label class="field"><span>resource gain: amount</span>
           <input type="number" step="any" data-path="module.resourceGain.amount">
           <em>capacity added when equipped</em></label>
+        <label class="field"><span>power nodes</span>
+          <input type="number" step="1" data-path="module.powerNodes"
+                 placeholder="e.g. 4">
+          <em>power cores that can attach (the 0/N cap; Popper is 2-3)</em></label>
       </div>
     </details>
   </section>
@@ -649,7 +791,36 @@
     "Module Weapon Purple Can": "physics",
     "Module Weapon Purple ClusterCube": "physics",
     "Module Weapon Tech Dandelion": "physics",
-    "Module Weapon Fly": "minion"
+    "Module Weapon Fly": "minion",
+    // Enemy weapons (raw WeaponData). Types are best-guess for which
+    // extra form fields to show; core fields always apply regardless.
+    "Weapon_Grunt": "projectile",
+    "Weapon_Raven": "projectile",
+    "Weapon_Zipper": "projectile",
+    "Weapon_Fly": "minion",
+    "Weapon_Fly_Laser": "hitscan",
+    "Weapon_Fly_Dad": "minion",
+    "Weapon_PhantomDrone": "minion",
+    "Weapon_Turret_Laser": "hitscan",
+    "Weapon_Turret_Worm": "projectile",
+    "Weapon_CrossQueen": "projectile",
+    "Weapon_Laser_CrossQueen": "hitscan",
+    "Weapon_CrossJock": "projectile",
+    "Weapon_CrossAlpha": "projectile",
+    "Weapon Enemy Soldier": "projectile",
+    "Weapon Enemy DroneMissile": "projectile",
+    "Weapon Enemy Queen Bomb": "physics",
+    "Weapon Enemy Turret Sniper": "projectile",
+    "Weapon Crawler Laser": "hitscan",
+    "Weapon FireBall": "projectile",
+    "Weapon Fish": "projectile",
+    "Weapon Drone": "minion",
+    "Weapon BouncerRed": "projectile",
+    "Weapon Rocket Rookie": "projectile",
+    "Weapon Rocket Soldier": "projectile",
+    "Weapon Rocket JockRocket": "projectile",
+    "Weapon SoldierPurple": "projectile",
+    "Weapon SoldierTech": "projectile"
   };
 
   var output = document.getElementById("output");
@@ -669,6 +840,16 @@
       s.classList.toggle("hidden",
         s.getAttribute("data-type") !== type);
     }
+    // Gadget shell only matters when the slot is a gadget.
+    var slot = document.getElementById("f-slot").value;
+    var isGadget = slot.indexOf("gadget") === 0;
+    document.getElementById("f-gadgetshell-field")
+      .classList.toggle("hidden", !isGadget);
+    // Loot weight only matters when the weapon can drop.
+    var source = document.getElementById("f-source").value;
+    var canDrop = source !== "starter";
+    document.getElementById("f-lootweight-field")
+      .classList.toggle("hidden", !canDrop);
   }
 
   function deepSet(obj, path, value) {
@@ -693,9 +874,9 @@
   }
 
   function isIncluded(el) {
-    // skip fields inside a type section that isn't active
-    var section = el.closest(".type-section");
-    if (section && section.classList.contains("hidden")) return false;
+    // skip anything inside a hidden container (inactive type section,
+    // or the gadget-shell field when the slot isn't a gadget)
+    if (el.closest(".hidden")) return false;
     // skip fields inside a block whose gate is unchecked
     var block = el.closest("details.block");
     if (block) {
@@ -758,6 +939,7 @@
     // template, baseLoadout, weapon, module
     var ordered = {};
     var keys = ["name", "displayName", "description", "template",
+                "slot", "gadgetShell", "source", "lootWeight",
                 "baseLoadout", "weapon", "module"];
     for (var k = 0; k < keys.length; k++) {
       if (keys[k] in out) ordered[keys[k]] = out[keys[k]];
@@ -784,11 +966,29 @@
   document.addEventListener("input", refresh);
   document.addEventListener("change", refresh);
 
-  // Color preset dropdown fills the free-text color field.
+  // Color preset dropdowns fill their free-text color fields.
   document.getElementById("f-color-preset")
     .addEventListener("change", function () {
       if (this.value) {
         document.getElementById("f-color-custom").value =
+          this.value;
+      }
+      refresh();
+    });
+
+  document.getElementById("f-proj-color-preset")
+    .addEventListener("change", function () {
+      if (this.value) {
+        document.getElementById("f-proj-color-custom").value =
+          this.value;
+      }
+      refresh();
+    });
+
+  document.getElementById("f-icon-preset")
+    .addEventListener("change", function () {
+      if (this.value) {
+        document.getElementById("f-icon-custom").value =
           this.value;
       }
       refresh();
