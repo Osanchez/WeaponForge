@@ -51,21 +51,30 @@ select screen opens - restart the game to see changes.
 TOP-LEVEL KEYS
 --------------
 name         (required) unique internal id, letters/numbers only
-template     (required) the weapon to clone - a weapon module
-             (""Module Weapon White Popper"") OR a raw weapon asset,
-             including enemy weapons (""Weapon_Grunt"", ""Weapon Enemy
-             Soldier""). Decides behavior + visuals/projectile model.
+template     (required) what to clone. Any of:
+             - a weapon module (""Module Weapon White Popper"")
+             - a GADGET module (""Module Active Purple AirMines"",
+               Surge, Teardrop, Caps Igniter, Caps Vial, Electron
+               Circuit, Generator Fuel) - a real gadget with its own
+               behavior
+             - a raw weapon asset incl. enemy weapons (""Weapon_Grunt"")
+             Decides behavior + visuals/projectile model.
 slot         where it equips (default ""primary""):
                ""primary""   - left click
                ""secondary"" - right click
                ""gadget1"" / ""gadget2"" / ""gadget3"" - the 1/2/3 keys
-             Left/right weapons and gadgets use different module types,
-             so a weapon can't sit in a gadget slot or vice versa -
-             the ""slot"" you pick builds the right kind automatically.
-gadgetShell  (gadgets only, optional) which gadget module to clone for
-             its slot fit + icon. Default ""Module Active Purple
-             AirMines"". Others: Surge, Teardrop, Caps Igniter, Caps
-             Vial, Electron Circuit.
+             Weapons and gadgets are different module types, but you can
+             mix freely: a gadget template in a gadget slot stays a
+             gadget; a weapon template in a gadget slot becomes a gadget
+             that fires that weapon; a gadget template in a weapon slot
+             fires its weapon on click. The slot picks the final type.
+target       who the weapon hurts (default ""enemies""):
+               ""enemies"" - hits enemies, not you. Also FIXES enemy
+                           weapon templates (FireBall, Crawler Laser,
+                           etc.) which otherwise only hurt the player.
+               ""player""  - original enemy-style targeting (hurts you).
+             Normal player weapons are already ""enemies"", so this is a
+             no-op for them.
 source       where the weapon can show up (default ""starter""):
                ""starter""         - only as a new-game loadout pick
                ""loot""            - only as a drop from crates
@@ -81,8 +90,9 @@ module       { field overrides applied to the cloned module card }
 
 GADGETS: a gadget fires its weapon when you press its key (1/2/3),
 on a cooldown of 1/fireRate, spending ""cost"" of ""resourceUsed"" per
-use - so those weapon fields control the gadget's feel. Your gadget
-is added ALONGSIDE the base loadout's normal primary weapon.
+use - so those weapon fields control the gadget's feel. The loadout
+carries ONLY the weapon you make (plus the ship) - it does NOT keep
+the base loadout's popper on left-click.
 
 ENEMY WEAPONS: raw ""Weapon ..."" assets (many used by enemies) can be
 used as templates. Most resolve fine; if one isn't loaded in memory
@@ -112,7 +122,10 @@ color         game ColorAsset name (ColorWhite, ColorOrange,
               Color Tech, ColorPower) OR a hex value ""#7fd4ff""
 resourceGain  { ""resource"": ""Resource White"", ""amount"": 12 }
               change which resource (and how much) equipping this
-              weapon adds to your ship's tanks
+              weapon adds to your ship's tanks. NOTE: can't be a
+              SHARED resource like ""Resource Money"" (currency) - the
+              game manages those run-wide, so giving one per-weapon is
+              ignored (it would otherwise hang loading).
 powerNodes    how many power cores can attach to the module (the
               ""0 / N"" cap in the grid). A number = fixed (""powerNodes"":
               6 always gives 6), or a range { ""min"":4, ""max"":8 } for
@@ -177,6 +190,11 @@ NOTES
   (orange), ""Resource Purple"", ""Resource Electron"" (blue),
   ""Resource Health"" (red), ""Resource Money"" (yellow), ""Resource
   Fuel"", ""Resource Tech"". Shorthand ""White"" etc. also works.
+- ""Resource Money"" is SHARED/currency and is NOT usable as a weapon
+  resource at all - not as ""resourceUsed"", ""resourceGain"", or
+  ""damageType"" (any of them hangs/breaks the game). Weapon Forge
+  ignores/reverts it with a log warning. Use White/Caps/Purple/
+  Electron/Health/Fuel/Tech instead.
 - Asset references are looked up by name; use the AssetRipper export
   to find prefab/sprite/module names.
 - Some game fields have quirky spelling: ""multiplyer"",

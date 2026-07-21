@@ -73,26 +73,40 @@ namespace WeaponForge
             if (slot == "gadget")
                 slot = "gadget1";
 
-            // Resolve the weapon behavior: a weapon module's .weapon,
-            // or a raw WeaponData asset (e.g. an enemy weapon that has
-            // no module wrapper).
+            // Resolve the template. It can be a weapon module, a gadget
+            // module (WeaponBasedActiveModuleData - e.g. Air Mine), or a
+            // raw weapon asset (enemy weapons). The weapon BEHAVIOR comes
+            // from whichever it is; the SLOT decides the module type we
+            // wrap it in.
             var templateModule =
                 JsonFieldMapper.FindAsset(
                     typeof(WeaponModuleData),
                     templateName) as WeaponModuleData;
 
-            WeaponData weaponSource =
+            var templateGadget =
                 templateModule != null
-                    ? templateModule.weapon
+                    ? null
                     : JsonFieldMapper.FindAsset(
+                        typeof(WeaponBasedActiveModuleData),
+                        templateName) as WeaponBasedActiveModuleData;
+
+            WeaponData weaponSource;
+
+            if (templateModule != null)
+                weaponSource = templateModule.weapon;
+            else if (templateGadget != null)
+                weaponSource = templateGadget.weaponData;
+            else
+                weaponSource =
+                    JsonFieldMapper.FindAsset(
                         typeof(WeaponData), templateName) as WeaponData;
 
             if (weaponSource == null)
             {
                 Log.LogError(
                     fileName + ": template '" + templateName +
-                    "' not found (no weapon module or weapon asset " +
-                    "by that name is loaded)");
+                    "' not found or has no weapon (expected a weapon " +
+                    "module, a gadget module, or a weapon asset)");
                 return null;
             }
 
@@ -109,12 +123,14 @@ namespace WeaponForge
 
             weapon.name = "Forge Weapon " + name;
 
-            // Build the module shell of the right type for the slot.
+            // Build the module shell of the right type for the slot,
+            // preferring to clone the template itself when its native
+            // type already matches the slot (keeps its icon/behavior).
             ModuleData module =
                 BuildShell(
                     isGadget,
                     templateModule,
-                    root,
+                    templateGadget,
                     fileName);
 
             if (module == null)
@@ -140,19 +156,28 @@ namespace WeaponForge
             module.displayName = displayName;
             module.description = description;
 
+            string projectileColor = null;
+            float? projectileScale = null;
+            float rainbowSpeed = 0.5f;
+
             var weaponJson = root["weapon"] as JObject;
+
+            // Remember the template's resources so we can restore them
+            // if the JSON tries to switch to an unusable (shared) one.
+            Resource originalResourceUsed = weapon.resourceUsed;
+            Resource originalDamageType = weapon.damage.damageType;
 
             if (weaponJson != null)
             {
                 // Pull custom visual aliases out before the generic
                 // mapper sees them (they aren't real weapon fields).
-                string projectileColor =
+                projectileColor =
                     (string)weaponJson["projectileColor"];
 
-                float? projectileScale =
+                projectileScale =
                     (float?)weaponJson["projectileScale"];
 
-                float rainbowSpeed =
+                rainbowSpeed =
                     (float?)weaponJson["rainbowSpeed"] ?? 0.5f;
 
                 weaponJson.Remove("projectileColor");
@@ -163,18 +188,60 @@ namespace WeaponForge
                     weapon,
                     weaponJson,
                     name + ".weapon");
-
-                if (!string.IsNullOrEmpty(projectileColor) ||
-                    projectileScale.HasValue)
-                {
-                    ApplyVisuals(
-                        weapon,
-                        projectileColor,
-                        projectileScale,
-                        rainbowSpeed,
-                        fileName);
-                }
             }
+
+            // A weapon that fires from a SHARED resource (e.g. Money)
+            // makes the game install a per-unit ammo tank that collides
+            // with the run-wide shared tank -> duplicate-key crash that
+            // hangs loading. Fall back to the template's resource.
+            if (weapon.resourceUsed != null &&
+                weapon.resourceUsed.isShared)
+            {
+                Log.LogWarning(
+                    fileName + ": resourceUsed '" +
+                    weapon.resourceUsed.name + "' is a shared/currency " +
+                    "resource and can't power a weapon (it would hang " +
+                    "the game) - keeping '" +
+                    (originalResourceUsed != null
+                        ? originalResourceUsed.name
+                        : "template default") + "' instead.");
+
+                weapon.resourceUsed = originalResourceUsed;
+            }
+
+            // Same story for the damage element: a shared resource
+            // (Money) as damageType is busted, so revert it.
+            if (weapon.damage.damageType != null &&
+                weapon.damage.damageType.isShared)
+            {
+                Log.LogWarning(
+                    fileName + ": damage type '" +
+                    weapon.damage.damageType.name + "' is a shared/" +
+                    "currency resource and isn't usable - keeping '" +
+                    (originalDamageType != null
+                        ? originalDamageType.name
+                        : "template default") + "' instead.");
+
+                var dmg = weapon.damage;
+                dmg.damageType = originalDamageType;
+                weapon.damage = dmg;
+            }
+
+            // target: who the weapon hurts. "enemies" (default) makes it
+            // hit enemies and not the player - this also fixes enemy
+            // weapon templates, which otherwise only hurt the player.
+            // "player" keeps the original enemy-style targeting.
+            string target =
+                ((string)root["target"] ?? "enemies")
+                    .Trim().ToLowerInvariant();
+
+            ApplyVisuals(
+                weapon,
+                projectileColor,
+                projectileScale,
+                rainbowSpeed,
+                target,
+                fileName);
 
             var moduleJson = root["module"] as JObject;
 
@@ -261,14 +328,16 @@ namespace WeaponForge
         private static ModuleData BuildShell(
             bool isGadget,
             WeaponModuleData templateModule,
-            JObject root,
+            WeaponBasedActiveModuleData templateGadget,
             string fileName)
         {
             if (!isGadget)
             {
-                // Weapon slot: clone the template module directly when
-                // it is one (keeps its icon/color), otherwise a default
-                // weapon-module shell for its weapon ModuleType.
+                // Weapon slot: clone the template weapon module directly
+                // when it is one (keeps its icon/color). Otherwise (raw
+                // weapon, or a gadget template dropped into a weapon
+                // slot) clone the default weapon-module shell for its
+                // weapon ModuleType.
                 var shell = templateModule;
 
                 if (shell == null)
@@ -290,23 +359,27 @@ namespace WeaponForge
                 return ScriptableObject.Instantiate(shell);
             }
 
-            // Gadget slot: clone a WeaponBasedActiveModuleData so the
-            // module carries the "active" ModuleType that fits the
-            // 1/2/3 slots.
-            string shellName =
-                (string)root["gadgetShell"] ?? DefaultGadgetShell;
+            // Gadget slot: clone the template gadget module directly when
+            // the template IS a gadget (keeps its icon + native gadget
+            // behavior). Otherwise (a weapon template turned into a
+            // gadget) clone the default gadget shell for its "active"
+            // ModuleType.
+            var gadgetShell = templateGadget;
 
-            var gadgetShell =
-                JsonFieldMapper.FindAsset(
-                    typeof(WeaponBasedActiveModuleData),
-                    shellName) as WeaponBasedActiveModuleData;
+            if (gadgetShell == null)
+            {
+                gadgetShell =
+                    JsonFieldMapper.FindAsset(
+                        typeof(WeaponBasedActiveModuleData),
+                        DefaultGadgetShell)
+                        as WeaponBasedActiveModuleData;
+            }
 
             if (gadgetShell == null)
             {
                 Log.LogError(
-                    fileName + ": gadget shell '" + shellName +
-                    "' not found (needs a WeaponBasedActiveModuleData " +
-                    "like \"Module Active Purple AirMines\")");
+                    fileName + ": gadget shell '" +
+                    DefaultGadgetShell + "' not found");
                 return null;
             }
 
@@ -335,13 +408,16 @@ namespace WeaponForge
             }
         }
 
-        // Recolor / resize the weapon's projectile or beam. Behavior
-        // per weapon type is documented in the README / builder page.
+        // Recolor / resize the weapon's projectile or beam AND set who
+        // it hurts (target). Prefabs are cloned only when something
+        // actually changes. Behavior per weapon type is documented in
+        // the README / builder page.
         private static void ApplyVisuals(
             WeaponData weapon,
             string colorText,
             float? scale,
             float rainbowSpeed,
+            string target,
             string fileName)
         {
             Color? color = null;
@@ -373,43 +449,56 @@ namespace WeaponForge
                 }
             }
 
+            bool hasVisual =
+                color.HasValue || rainbow || scale.HasValue;
+
+            int fromLayer = VisualCustomizer.FactionFromLayer(target);
+            int toLayer = VisualCustomizer.FactionToLayer(target);
+
             var projectileData = weapon as ProjectileWeaponData;
 
             if (projectileData != null)
             {
-                if (projectileData.projectilePrefab != null)
-                {
-                    GameObject clone =
-                        VisualCustomizer.ClonePrefab(
-                            projectileData.projectilePrefab.gameObject);
+                var newProjectile =
+                    ReskinProjectile(
+                        projectileData.projectilePrefab != null
+                            ? projectileData.projectilePrefab.gameObject
+                            : null,
+                        color, rainbow, rainbowSpeed, scale,
+                        fromLayer, toLayer, hasVisual);
 
-                    Paint(clone, color, rainbow, rainbowSpeed);
+                if (newProjectile != null)
+                {
+                    var comp =
+                        newProjectile
+                            .GetComponentInChildren<Projectile>(true);
+
+                    if (comp != null)
+                        projectileData.projectilePrefab = comp;
 
                     if (scale.HasValue)
-                    {
-                        VisualCustomizer.Scale(clone, scale.Value);
                         projectileData.projectileRadius *= scale.Value;
-                    }
-
-                    projectileData.projectilePrefab =
-                        clone.GetComponent<Projectile>();
                 }
 
-                if (projectileData.physicsProjectilePrefab != null &&
-                    projectileData.usePhysics)
+                if (projectileData.usePhysics &&
+                    projectileData.physicsProjectilePrefab != null)
                 {
-                    GameObject clone =
-                        VisualCustomizer.ClonePrefab(
+                    var pp =
+                        ReskinProjectile(
                             projectileData
-                                .physicsProjectilePrefab.gameObject);
+                                .physicsProjectilePrefab.gameObject,
+                            color, rainbow, rainbowSpeed, scale,
+                            fromLayer, toLayer, hasVisual);
 
-                    Paint(clone, color, rainbow, rainbowSpeed);
+                    if (pp != null)
+                    {
+                        var comp =
+                            pp.GetComponentInChildren<PhysicsProjectile>(
+                                true);
 
-                    if (scale.HasValue)
-                        VisualCustomizer.Scale(clone, scale.Value);
-
-                    projectileData.physicsProjectilePrefab =
-                        clone.GetComponent<PhysicsProjectile>();
+                        if (comp != null)
+                            projectileData.physicsProjectilePrefab = comp;
+                    }
                 }
 
                 return;
@@ -419,7 +508,12 @@ namespace WeaponForge
 
             if (hitscanData != null)
             {
-                if (hitscanData.visual != null)
+                // Hitscan targeting is purely the layerMask (a data
+                // field - no prefab clone needed).
+                hitscanData.layerMask =
+                    VisualCustomizer.HitscanMask(target);
+
+                if (hasVisual && hitscanData.visual != null)
                 {
                     GameObject clone =
                         VisualCustomizer.ClonePrefab(
@@ -444,19 +538,21 @@ namespace WeaponForge
 
             if (physicsData != null)
             {
-                if (physicsData.projectilePrefab != null)
+                var pp =
+                    ReskinProjectile(
+                        physicsData.projectilePrefab != null
+                            ? physicsData.projectilePrefab.gameObject
+                            : null,
+                        color, rainbow, rainbowSpeed, scale,
+                        fromLayer, toLayer, hasVisual);
+
+                if (pp != null)
                 {
-                    GameObject clone =
-                        VisualCustomizer.ClonePrefab(
-                            physicsData.projectilePrefab.gameObject);
+                    var comp =
+                        pp.GetComponentInChildren<Rigidbody2D>(true);
 
-                    Paint(clone, color, rainbow, rainbowSpeed);
-
-                    if (scale.HasValue)
-                        VisualCustomizer.Scale(clone, scale.Value);
-
-                    physicsData.projectilePrefab =
-                        clone.GetComponent<Rigidbody2D>();
+                    if (comp != null)
+                        physicsData.projectilePrefab = comp;
                 }
 
                 return;
@@ -466,8 +562,9 @@ namespace WeaponForge
 
             if (minionData != null)
             {
-                // Only recolor minions — scaling a Unit can break its
-                // AI / navigation / colliders.
+                // Minions have their own Unit faction (not a projectile
+                // layer), so "target" doesn't apply here - only recolor.
+                // Scaling a Unit can break its AI/colliders, so skip it.
                 if (minionData.minionPrefab != null &&
                     (color.HasValue || rainbow))
                 {
@@ -481,6 +578,47 @@ namespace WeaponForge
                         clone.GetComponent<Unit>();
                 }
             }
+        }
+
+        // Clone + recolor/scale + re-faction a projectile prefab, but
+        // only if something actually changes. Re-factioning happens ONLY
+        // when the prefab's root is on the "from" (wrong-faction) layer,
+        // i.e. it's genuinely an enemy weapon needing to be flipped - a
+        // weapon already on the right faction (e.g. a player gadget like
+        // air mines) is left alone so its mixed collision layers survive.
+        // Returns the clone, or null if no change was needed.
+        private static GameObject ReskinProjectile(
+            GameObject original,
+            Color? color,
+            bool rainbow,
+            float rainbowSpeed,
+            float? scale,
+            int fromLayer,
+            int toLayer,
+            bool hasVisual)
+        {
+            if (original == null)
+                return null;
+
+            bool needFaction =
+                fromLayer >= 0 && toLayer >= 0 &&
+                original.layer == fromLayer;
+
+            if (!hasVisual && !needFaction)
+                return null;
+
+            GameObject clone =
+                VisualCustomizer.ClonePrefab(original);
+
+            Paint(clone, color, rainbow, rainbowSpeed);
+
+            if (scale.HasValue)
+                VisualCustomizer.Scale(clone, scale.Value);
+
+            if (needFaction)
+                VisualCustomizer.RemapLayer(clone, fromLayer, toLayer);
+
+            return clone;
         }
 
         // Static color or animated rainbow, whichever was requested.
@@ -591,6 +729,19 @@ namespace WeaponForge
                         fileName +
                         ": resourceGain resource '" +
                         resourceName + "' not found");
+                }
+                else if (resource.isShared)
+                {
+                    // Shared resources (e.g. Money) are managed by the
+                    // run-wide shared-tank system, not per-unit. Giving
+                    // one as capacity installs a duplicate tank and
+                    // throws during unit setup, which hangs loading.
+                    Log.LogWarning(
+                        fileName + ": resourceGain resource '" +
+                        resourceName + "' is a shared resource and " +
+                        "can't be gained per-weapon - ignoring it " +
+                        "(this would otherwise hang the game).");
+                    return;
                 }
             }
 

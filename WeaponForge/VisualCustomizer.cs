@@ -114,6 +114,66 @@ namespace WeaponForge
             }
         }
 
+        // --- Faction / targeting ---------------------------------
+        // A projectile only hits what its GameObject layer collides
+        // with. Enemy projectiles bake to "EnemyProjectiles" (hits the
+        // player); "PlayerProjectiles" hits enemies and, via the physics
+        // matrix, spares the player. We re-faction by SWAPPING only the
+        // projectile-faction layer, leaving every other layer (ground,
+        // triggers, deployables) untouched - blanket re-layering breaks
+        // prefabs like air mines that mix layers on purpose. Resolved by
+        // name so it survives layer-index changes; -1 if the layer is
+        // missing.
+        public static int EnemyProjectileLayer()
+        {
+            return LayerMask.NameToLayer("EnemyProjectiles");
+        }
+
+        public static int PlayerProjectileLayer()
+        {
+            return LayerMask.NameToLayer("PlayerProjectiles");
+        }
+
+        // The layer a re-factioned prefab's root is EXPECTED to be on if
+        // it still needs swapping ("from"), and what to swap it to.
+        public static int FactionFromLayer(string target)
+        {
+            return target == "player"
+                ? PlayerProjectileLayer()
+                : EnemyProjectileLayer();
+        }
+
+        public static int FactionToLayer(string target)
+        {
+            return target == "player"
+                ? EnemyProjectileLayer()
+                : PlayerProjectileLayer();
+        }
+
+        // Recursively remap ONLY the objects currently on `from` to `to`.
+        public static void RemapLayer(GameObject go, int from, int to)
+        {
+            if (go == null || from < 0 || to < 0)
+                return;
+
+            if (go.layer == from)
+                go.layer = to;
+
+            foreach (Transform child in go.transform)
+                RemapLayer(child.gameObject, from, to);
+        }
+
+        // Hitscan has no faction check - only its layerMask matters.
+        // "enemies" => Entities+Ground+Fruits (like the player laser);
+        // "player" => Player+Ground+Fruits (like the enemy laser).
+        public static LayerMask HitscanMask(string target)
+        {
+            if (target == "player")
+                return LayerMask.GetMask("Player", "Ground", "Fruits");
+
+            return LayerMask.GetMask("Entities", "Ground", "Fruits");
+        }
+
         // Attach the RGB/rainbow cycler to a cloned prefab so every
         // instance spawned from it animates its own color.
         public static void ApplyRainbow(GameObject root, float speed)

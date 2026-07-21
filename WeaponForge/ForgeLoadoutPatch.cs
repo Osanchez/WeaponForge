@@ -84,9 +84,17 @@ namespace WeaponForge
                     loadout.description = entry.description;
                     loadout.unlockingModules = new ModuleData[0];
 
-                    // Place the module in the slot it was built for.
-                    // Gadgets keep the base loadout's primary weapon;
-                    // primary/secondary weapons replace it.
+                    // The loadout should carry ONLY the created weapon
+                    // (plus the ship's embedded module). Clear all the
+                    // base loadout's weapon/gadget slots so a gadget
+                    // doesn't drag the base popper along on left-click.
+                    loadout.primary = null;
+                    loadout.secondary = null;
+                    loadout.active1 = null;
+                    loadout.active2 = null;
+                    loadout.active3 = null;
+
+                    // Place our module in the slot it was built for.
                     switch (entry.slot)
                     {
                         case "secondary":
