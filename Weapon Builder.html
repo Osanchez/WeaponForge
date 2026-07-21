@@ -154,6 +154,15 @@
           <optgroup label="Minion spawner (pets)">
             <option>Module Weapon Fly</option>
           </optgroup>
+          <optgroup label="Gadgets (use with a gadget slot)">
+            <option>Module Active Purple AirMines</option>
+            <option>Module Active Purple Surge</option>
+            <option>Module Active Purple Teardrop</option>
+            <option>Module Active Caps Igniter</option>
+            <option>Module Active Caps Vial</option>
+            <option>Module Active Electron Circuit</option>
+            <option>Module Active Generator Fuel</option>
+          </optgroup>
           <optgroup label="Enemy weapons (advanced - raw weapon assets)">
             <option>Weapon_Grunt</option>
             <option>Weapon_Raven</option>
@@ -205,18 +214,12 @@
           <option value="gadget3">gadget 3 (key 3)</option>
         </select>
         <em>where the weapon is equipped</em></label>
-      <label class="field" id="f-gadgetshell-field">
-        <span>gadget shell (optional)</span>
-        <select data-path="gadgetShell">
-          <option value="">Module Active Purple AirMines (default)</option>
-          <option>Module Active Purple AirMines</option>
-          <option>Module Active Purple Surge</option>
-          <option>Module Active Purple Teardrop</option>
-          <option>Module Active Caps Igniter</option>
-          <option>Module Active Caps Vial</option>
-          <option>Module Active Electron Circuit</option>
+      <label class="field"><span>target</span>
+        <select data-path="target">
+          <option value="enemies" selected>enemies (hits enemies, not you)</option>
+          <option value="player">player (original enemy behavior)</option>
         </select>
-        <em>gadget module to clone for slot fit + icon</em></label>
+        <em>who it hurts; fixes enemy-weapon templates</em></label>
       <label class="field"><span>source</span>
         <select id="f-source" data-path="source">
           <option value="starter">starter (new-game pick)</option>
@@ -245,7 +248,8 @@
           <option value="">keep template</option>
           <option>Resource White</option><option>Resource Caps</option>
           <option>Resource Purple</option><option>Resource Electron</option>
-            <option>Resource Health</option><option>Resource Money</option>
+            <option>Resource Health</option>
+            <option>Resource Fuel</option><option>Resource Tech</option>
         </select></label>
       <label class="field"><span>fireRate</span>
         <input type="number" step="any" data-path="weapon.fireRate">
@@ -279,9 +283,11 @@
           <option value="">keep template</option>
           <option>Resource White</option><option>Resource Caps</option>
           <option>Resource Purple</option><option>Resource Electron</option>
-            <option>Resource Health</option><option>Resource Money</option>
+          <option>Resource Health</option>
+          <option>Resource Fuel</option><option>Resource Tech</option>
         </select>
-        <em>ammo tank drained</em></label>
+        <em>ammo tank drained (not Money - shared/currency, would
+        hang the game)</em></label>
       <label class="field"><span>cost</span>
         <input type="number" step="any" data-path="weapon.cost">
         <em>ammo per shot</em></label>
@@ -302,7 +308,8 @@
             <option value="">keep template</option>
             <option>Resource White</option><option>Resource Caps</option>
             <option>Resource Purple</option><option>Resource Electron</option>
-            <option>Resource Health</option><option>Resource Money</option>
+            <option>Resource Health</option>
+            <option>Resource Fuel</option><option>Resource Tech</option>
           </select></label>
       </div>
     </details>
@@ -326,7 +333,8 @@
             <option value="">keep template</option>
             <option>Resource White</option><option>Resource Caps</option>
             <option>Resource Purple</option><option>Resource Electron</option>
-            <option>Resource Health</option><option>Resource Money</option>
+            <option>Resource Health</option>
+            <option>Resource Fuel</option><option>Resource Tech</option>
           </select></label>
       </div>
     </details>
@@ -614,7 +622,8 @@
             <option value="">keep template</option>
             <option>Resource White</option><option>Resource Caps</option>
             <option>Resource Purple</option><option>Resource Electron</option>
-            <option>Resource Health</option><option>Resource Money</option>
+            <option>Resource Health</option>
+            <option>Resource Fuel</option><option>Resource Tech</option>
           </select></label>
       </div>
     </details>
@@ -736,9 +745,11 @@
             <option value="">keep template</option>
             <option>Resource White</option><option>Resource Caps</option>
             <option>Resource Purple</option><option>Resource Electron</option>
-            <option>Resource Health</option><option>Resource Money</option>
+            <option>Resource Health</option>
+            <option>Resource Fuel</option><option>Resource Tech</option>
           </select>
-          <em>which tank equipping this weapon fills</em></label>
+          <em>which tank equipping this weapon fills (not Money - it's
+          a shared/currency resource and can't be gained here)</em></label>
         <label class="field"><span>resource gain: amount</span>
           <input type="number" step="any" data-path="module.resourceGain.amount">
           <em>capacity added when equipped</em></label>
@@ -792,6 +803,15 @@
     "Module Weapon Purple ClusterCube": "physics",
     "Module Weapon Tech Dandelion": "physics",
     "Module Weapon Fly": "minion",
+    // Gadget modules (pick a gadget slot). Type shown is a best-guess
+    // for extra fields; core fields always apply.
+    "Module Active Purple AirMines": "physics",
+    "Module Active Purple Surge": "projectile",
+    "Module Active Purple Teardrop": "projectile",
+    "Module Active Caps Igniter": "projectile",
+    "Module Active Caps Vial": "physics",
+    "Module Active Electron Circuit": "projectile",
+    "Module Active Generator Fuel": "projectile",
     // Enemy weapons (raw WeaponData). Types are best-guess for which
     // extra form fields to show; core fields always apply regardless.
     "Weapon_Grunt": "projectile",
@@ -840,11 +860,6 @@
       s.classList.toggle("hidden",
         s.getAttribute("data-type") !== type);
     }
-    // Gadget shell only matters when the slot is a gadget.
-    var slot = document.getElementById("f-slot").value;
-    var isGadget = slot.indexOf("gadget") === 0;
-    document.getElementById("f-gadgetshell-field")
-      .classList.toggle("hidden", !isGadget);
     // Loot weight only matters when the weapon can drop.
     var source = document.getElementById("f-source").value;
     var canDrop = source !== "starter";
@@ -939,7 +954,7 @@
     // template, baseLoadout, weapon, module
     var ordered = {};
     var keys = ["name", "displayName", "description", "template",
-                "slot", "gadgetShell", "source", "lootWeight",
+                "slot", "target", "source", "lootWeight",
                 "baseLoadout", "weapon", "module"];
     for (var k = 0; k < keys.length; k++) {
       if (keys[k] in out) ordered[keys[k]] = out[keys[k]];

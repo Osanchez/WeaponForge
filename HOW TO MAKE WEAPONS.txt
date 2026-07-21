@@ -81,8 +81,6 @@ Search the log for "WeaponForge".
                                      "secondary" (right click), or
                                      "gadget1"/"gadget2"/"gadget3"
                                      (the 1/2/3 keys). See section 4b.
-  "gadgetShell": "...",           <- Optional, gadgets only. Which
-                                     gadget module to clone. (sec 4b)
   "source": "starter",            <- Optional. Where it can appear:
                                      "starter" (new-game pick, default),
                                      "loot" (drops from crates), or
@@ -162,6 +160,12 @@ Names come from the AssetRipper export (drop the ".asset"). Both
 "Weapon_Name" and "Weapon Name" styles exist; use the exact name.
 Most load fine; if one isn't in memory at the menu the log says so.
 
+Enemy weapons are built to hurt the PLAYER, so on their own they'd
+damage you, not enemies. Weapon Forge fixes this automatically:
+"target" defaults to "enemies" (see section 4d), so an enemy weapon
+you use will hit enemies and leave you alone. Set "target":"player"
+if you actually want the original enemy behavior.
+
 ----------------------------------------------------------------
  4b. SLOTS - PRIMARY, SECONDARY & GADGETS
 ----------------------------------------------------------------
@@ -171,23 +175,44 @@ Most load fine; if one isn't in memory at the menu the log says so.
   "secondary"  right click
   "gadget1/2/3"  the 1, 2 and 3 keys
 
-Left/right-click weapons and gadgets are different MODULE TYPES in
-this game, so a normal weapon can't go in a gadget slot and a gadget
-can't go in a weapon slot. Weapon Forge handles this for you: pick a
-"slot" and it builds the correct module type around your weapon.
+Weapons and gadgets are different MODULE TYPES, but you can mix them
+freely - the "slot" you choose decides the final type, and Weapon
+Forge converts as needed:
+  - GADGET template + gadget slot  = the real gadget (its own
+    behavior, e.g. Air Mine deploys mines). This is the normal way to
+    make a gadget - pick one from the "Gadgets" group in the template
+    list (section 4, "GADGET MODULES").
+  - WEAPON template + gadget slot  = a gadget that fires that weapon
+    (e.g. your custom rocket, on a key press).
+  - GADGET template + weapon slot  = fires the gadget's weapon on
+    left/right click instead of a key.
 
 GADGETS fire on a key press with a cooldown, not held-down fire:
   - Cooldown  = 1 / fireRate  (higher fireRate = faster re-use)
   - Cost      = "cost" of "resourceUsed" per activation
   So set those weapon fields to tune how the gadget feels.
-  - A gadget is added ALONGSIDE the base loadout's primary weapon
-    (you keep a normal gun plus your gadget).
-  - "gadgetShell" (optional) picks which existing gadget module to
-    clone for its slot fit + icon. Default "Module Active Purple
-    AirMines". Others: Module Active Purple Surge / Purple Teardrop /
-    Caps Igniter / Caps Vial / Electron Circuit.
+  - The loadout contains ONLY the weapon you make (plus the ship).
+    A gadget loadout does NOT include the base loadout's popper on
+    left-click - just your gadget.
 
-Example gadget (rocket on key 1):
+GADGET MODULES you can use as a template:
+  Module Active Purple AirMines    (air mines)
+  Module Active Purple Surge       (surge)
+  Module Active Purple Teardrop    (teardrop)
+  Module Active Caps Igniter       (igniter)
+  Module Active Caps Vial          (vial)
+  Module Active Electron Circuit   (circuit)
+  Module Active Generator Fuel     (fuel generator)
+
+Example - use the real Air Mine gadget on key 1, buffed:
+  {
+    "name": "SuperMines",
+    "template": "Module Active Purple AirMines",
+    "slot": "gadget1",
+    "weapon": { "damage": { "amount": 15, "damageType": "Purple" } }
+  }
+
+Example - turn a custom rocket into a gadget on key 1:
   {
     "name": "PocketRocket",
     "template": "Module Weapon Caps Rocket",
@@ -233,6 +258,38 @@ Example loot-only weapon:
     "source": "loot",
     "lootWeight": 5,
     "weapon": { "damage": { "amount": 30, "damageType": "Purple" } }
+  }
+
+----------------------------------------------------------------
+ 4d. TARGET - WHO THE WEAPON HURTS
+----------------------------------------------------------------
+
+"target" controls whether the weapon damages enemies or the player:
+  "enemies"  (default) hits enemies and leaves you unharmed
+  "player"   hits the player (the original enemy-weapon behavior)
+
+WHY THIS EXISTS: in PUNK a projectile only hits things on a matching
+physics "layer", and enemy weapons put their shots on an enemy layer
+that only collides with the PLAYER. So an enemy weapon used as-is
+would damage you, not enemies. With "target":"enemies" Weapon Forge
+re-lays the cloned projectile onto the player-projectile layer (and
+sets a beam's hit mask to enemies), which makes it hit enemies AND,
+because of how the layers work, automatically stops it hitting you.
+
+Notes:
+  - Normal player-weapon templates are already "enemies", so the
+    default changes nothing for them.
+  - Works for projectile, beam (hitscan), and physics weapons.
+  - Does NOT apply to minion/pet weapons - a summoned minion has its
+    own faction, which this option doesn't change.
+
+Example - an enemy fireball that now hurts enemies:
+  {
+    "name": "MyFireball",
+    "displayName": "FIREBALL",
+    "template": "Weapon FireBall",
+    "target": "enemies",
+    "weapon": { "damage": { "amount": 8, "damageType": "Caps" } }
   }
 
 ----------------------------------------------------------------
@@ -423,6 +480,13 @@ grid/inventory UI and what it grants when equipped:
     },                               the template's bonus (e.g. the
                                      Caps Laser normally grants
                                      orange/caps capacity).
+                                     NOTE: do NOT use "Resource Money"
+                                     (or any shared/currency resource)
+                                     here - the game manages those
+                                     run-wide, so a per-weapon Money
+                                     gain is ignored (it would hang
+                                     loading). Money is fine as a
+                                     "resourceUsed"/"damageType" though.
     "powerNodes": 6                  How many power cores can attach to
                                      the module (the "0 / N" cap in the
                                      grid). A number = fixed; or a range
@@ -443,9 +507,14 @@ Game ColorAsset names:
   Resource Purple     purple
   Resource Electron   electric / blue
   Resource Health     red / health
-  Resource Money      yellow / money
+  Resource Money      yellow / money  (SHARED - see note below)
   Resource Fuel       fuel
   Resource Tech       tech
+
+"Resource Money" is shared/currency and is NOT usable as a weapon
+resource at all - not "resourceUsed" (ammo), "resourceGain", or
+"damageType". Any of them hangs/breaks the game, so Weapon Forge
+ignores/reverts Money and logs a warning. Use one of the others.
 
 Shorthand works too: "damageType": "White" finds Resource White.
 Resources decide BOTH what ammo you drain (resourceUsed) and what
