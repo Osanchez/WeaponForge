@@ -232,6 +232,23 @@
         <input type="number" step="any" data-path="lootWeight"
                placeholder="10">
         <em>drop chance vs other crate modules (default 10)</em></label>
+      <label class="field"><span>buy from shop</span>
+        <select id="f-shop" data-path="shop" data-type="bool">
+          <option value="">no</option>
+          <option value="true">yes - purchasable in the shop</option>
+        </select>
+        <em>can be bought in the in-run shop</em></label>
+      <label class="field" id="f-shopprice-field">
+        <span>shop price</span>
+        <input type="number" step="1" data-path="shopPrice"
+               placeholder="100">
+        <em>cost in money/yellow (default 100)</em></label>
+      <label class="field" id="f-shopunlock-field">
+        <span>shop unlock level</span>
+        <input type="number" step="1" data-path="shopUnlockLevel"
+               placeholder="1">
+        <em>stations to unlock before it appears (0 = from the very
+        first shop; default 1)</em></label>
     </div>
     <label class="field" style="margin-top:10px">
       <span>description</span>
@@ -865,6 +882,12 @@
     var canDrop = source !== "starter";
     document.getElementById("f-lootweight-field")
       .classList.toggle("hidden", !canDrop);
+    // Shop price/unlock only matter when the weapon is purchasable.
+    var inShop = document.getElementById("f-shop").value === "true";
+    document.getElementById("f-shopprice-field")
+      .classList.toggle("hidden", !inShop);
+    document.getElementById("f-shopunlock-field")
+      .classList.toggle("hidden", !inShop);
   }
 
   function deepSet(obj, path, value) {
@@ -955,6 +978,7 @@
     var ordered = {};
     var keys = ["name", "displayName", "description", "template",
                 "slot", "target", "source", "lootWeight",
+                "shop", "shopPrice", "shopUnlockLevel",
                 "baseLoadout", "weapon", "module"];
     for (var k = 0; k < keys.length; k++) {
       if (keys[k] in out) ordered[keys[k]] = out[keys[k]];

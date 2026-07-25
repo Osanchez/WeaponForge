@@ -87,6 +87,13 @@ Search the log for "WeaponForge".
                                      "starterAndLoot" (both). See 4c.
   "lootWeight": 10,               <- Optional, loot only. Drop chance
                                      vs other crate modules (default 10).
+  "shop": true,                   <- Optional. Buyable in the in-run
+                                     shop. Independent of "source". 4d.
+  "shopPrice": 150,               <- Optional, shop only. Cost in money
+                                     (default 100).
+  "shopUnlockLevel": 2,           <- Optional, shop only. Stations the
+                                     player must unlock first (default
+                                     1; 0 = from the first shop). 4d.
   "baseLoadout": "Starter_Popper",<- Optional. Which starting ship
                                      loadout to clone for the ship
                                      and module slots.
@@ -290,6 +297,52 @@ Example - an enemy fireball that now hurts enemies:
     "template": "Weapon FireBall",
     "target": "enemies",
     "weapon": { "damage": { "amount": 8, "damageType": "Caps" } }
+  }
+
+----------------------------------------------------------------
+ 4e. SHOP - BUYING THE WEAPON IN A RUN
+----------------------------------------------------------------
+
+Set "shop": true to make the weapon purchasable in the in-run shop.
+This is INDEPENDENT of "source" - a weapon can be a starter pick, a
+loot drop, AND a shop item all at once (or shop-only).
+
+  "shop": true              enable shop purchase
+  "shopPrice": 100          cost in money/yellow (default 100)
+  "shopUnlockLevel": 1      how many STATIONS you must unlock before it
+                            can appear (default 1)
+
+HOW PUNK'S SHOP UNLOCK WORKS (from the game's code): the shop is
+gated by a STATION THRESHOLD, not pure chance. There's one counter
+that is both "stations unlocked" and "shop tier". Every time you
+unlock a station, the game rolls the next tier of shop items. So:
+  shopUnlockLevel: 0  -> can appear in the very first shop (before any
+                         station is unlocked)
+  shopUnlockLevel: 1  -> after you unlock your 1st station (default)
+  shopUnlockLevel: 3  -> after your 3rd station
+Stock weapons live around tiers 1-5, so 1-3 feels natural.
+
+Unlike stock weapons (which share a big weighted pool and only MIGHT
+appear), a Weapon Forge shop weapon is added as its own guaranteed
+entry - once you reach its tier it WILL show up (as long as you don't
+already own it).
+
+Notes:
+  - A price is required internally; Weapon Forge sets one up for you
+    (in money), so it never crashes the shop.
+  - Each shop tier is rolled ONCE as you pass it, so if you're already
+    past "shopUnlockLevel" when the file is added, it won't retro-
+    appear that run - start a new run to see it.
+
+Example - a mid-game shop weapon:
+  {
+    "name": "ShopBlaster",
+    "displayName": "SHOP BLASTER",
+    "template": "Module Weapon White Bolt",
+    "shop": true,
+    "shopPrice": 175,
+    "shopUnlockLevel": 2,
+    "weapon": { "damage": { "amount": 6 } }
   }
 
 ----------------------------------------------------------------
