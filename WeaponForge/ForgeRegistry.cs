@@ -24,6 +24,9 @@ namespace WeaponForge
         public bool inStarter; // show in the new-game loadout list
         public bool inLoot;    // can drop from crates/loot
         public float lootWeight;
+        public bool inShop;    // can be bought from the shop
+        public float shopPrice;
+        public int shopUnlockLevel; // stations to unlock first
     }
 
     // Central store for Weapon Forge. Builds each JSON weapon's module

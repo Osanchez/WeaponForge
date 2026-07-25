@@ -313,7 +313,13 @@ namespace WeaponForge
                 inStarter = inStarter,
                 inLoot = inLoot,
                 lootWeight =
-                    (float?)root["lootWeight"] ?? 10f
+                    (float?)root["lootWeight"] ?? 10f,
+                inShop =
+                    (bool?)root["shop"] ?? false,
+                shopPrice =
+                    (float?)root["shopPrice"] ?? 100f,
+                shopUnlockLevel =
+                    (int?)root["shopUnlockLevel"] ?? 1
             };
         }
 

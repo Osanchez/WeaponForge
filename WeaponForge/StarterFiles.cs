@@ -82,6 +82,16 @@ source       where the weapon can show up (default ""starter""):
 lootWeight   (loot only, optional) drop chance vs other crate modules,
              default 10. Higher = more common. Crates roll from a
              weighted pool; your weapon joins it at this weight.
+shop         (optional, default false) if true, the weapon can be
+             bought in the in-run shop. Independent of ""source"" - a
+             weapon can be starter and/or loot and/or shop.
+shopPrice    (shop only) cost in money/yellow (default 100).
+shopUnlockLevel  (shop only) how many STATIONS the player must unlock
+             before it can appear in the shop (default 1). PUNK gates
+             the shop by station count: 0 = available from the very
+             first shop, 1 = after the 1st station, etc. Your weapon is
+             GUARANTEED to appear once that tier is reached (unlike the
+             stock weighted pool).
 displayName  loadout + module card title
 description  loadout + module card description
 baseLoadout  loadout to clone for the ship/slots (default Starter_Popper)
