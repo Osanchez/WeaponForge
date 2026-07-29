@@ -346,6 +346,127 @@ Example - a mid-game shop weapon:
   }
 
 ----------------------------------------------------------------
+ 4b. ELECTRIC / CHAIN-LIGHTNING WEAPONS (the White Tesla)
+----------------------------------------------------------------
+
+A hitscan/laser weapon can fire chain lightning like the White Tesla.
+See ExampleWhiteTesla.json - it's the classic White Tesla as an editable
+weapon (and, unlike the old standalone WhiteTeslaMod, it's save-safe).
+
+These are TOP-LEVEL keys (not inside "weapon"):
+  "dischargeOnFire": true   Makes the weapon fire a chain-lightning
+                            DISCHARGE from the ship (hitscan guns don't do
+                            this on their own). REQUIRED for lightning.
+  "chainThroughEnemies": true  Lets the lightning hop enemy-to-enemy
+                            (default true when dischargeOnFire). Adds a
+                            conductor to every enemy - only happens if you
+                            actually have an electric weapon.
+  "buildupSeconds": 2       Telegraph time before the strike lands.
+  "hideBeam": true          Hide the base laser beam so only the lightning
+                            shows (the Tesla look).
+  "lightningColor": "rainbow"  Recolor the lightning: a color name / #hex,
+                            or "rainbow" for an RGB cycle. NOTE: the lightning
+                            beam is shared, so this is global (all your
+                            chain lightning), and the last electric weapon
+                            loaded wins. Leave it out for the stock
+                            white/blue look.
+  "lightningRgbSpeed": 0.5  Rainbow only: hue cycles per second.
+  "lightningRange": 20      How FAR the lightning reaches / arcs PER HOP -
+                            the real "charge range". This is the one knob
+                            that actually changes reach. It is NOT
+                            chainLength (that's the NUMBER of hops) and NOT
+                            the weapon's hitscan range (that's the hidden
+                            laser beam). The game normally uses one global
+                            reach for all electricity; this overrides it for
+                            PLAYER lightning only (enemy electric attacks
+                            keep their reach). It's shared across all your
+                            chain weapons - last one loaded wins. Bigger
+                            values = longer arcs but more chain math.
+
+The actual lightning DAMAGE/reach lives in the weapon's discharge block:
+  "weapon": { "discharge": { "damage": { "amount": 3,
+                "damageType": "Resource White" },
+              "chainLength": 6, "subSystem": "Player" } }
+  - chainLength = how many enemies the arc hops.
+  - subSystem MUST be "Player" for a visible player-side beam.
+  - Damage is the discharge amount ticking over the strike window, so
+    total damage = amount x ticks x chain - tune by feel, not 1:1.
+Set the weapon's own "damage": { "amount": 0 } if you want ALL damage to
+come from the lightning (like the Tesla).
+
+----------------------------------------------------------------
+ 4c. ORBIT / SATELLITE WEAPONS (projectiles that circle you)
+----------------------------------------------------------------
+
+Turns a weapon's projectiles into a ring that orbits your ship. See
+ExampleOrbitRing.json (based on the White Worm). Put it in a WEAPON slot
+(primary/secondary). These are TOP-LEVEL keys (not inside "weapon"):
+
+  "orbit": true             REQUIRED - makes this an orbit weapon.
+  "orbitMode":              how it runs:
+     "passive"  always spinning while equipped (default)
+     "hold"     spins only while you hold fire (drains resource/sec if
+                orbitHoldDrainPerSecond is set)
+     "toggle"   tap fire to turn the ring on/off
+     "fire"     tap fire to (re)summon the ring for orbitFireDuration sec
+  "orbitDirection": "cw" or "ccw"   spin direction (default cw).
+  "orbitRadius": 3          circle size - how far the orbs sit from you.
+  "orbitSpeed": 140         spin speed in degrees/second.
+  "orbitContactDamage": true  orbs damage enemies they touch (default true).
+  "orbitDamageRepeatDelay": 0.3  seconds before an orb can re-hit the SAME
+                            enemy (stops instant melt).
+  "orbitBlockProjectiles": true  orbs destroy enemy shots they touch.
+  "orbitPushForce": 0       shove enemies away on contact (0 = off). Set
+                            contactDamage false + a push for a pure shield.
+  "orbitPulse": 0           radius breathes in/out by this much (0 = off).
+  "orbitSpinUp": 1          seconds to ramp from still to full spin.
+  "orbitFling": true        tapping fire makes the orbs surge outward then
+                            snap back (a burst attack).
+  "orbitSuppressFire": true default true = a pure orbit (no forward shots).
+                            false = ALSO fire the weapon normally.
+  "orbitHitRadius": 0.6     how big each orb's contact area is.
+  "orbitVisual": "Ammo_Worm"  which projectile art to use as the orbs
+                            (default: the weapon's own projectile).
+  DESTRUCTIBLE ORBS (optional):
+  "orbitDestroyOnEnemy": true   orb is destroyed when it hits an enemy.
+  "orbitDestroyOnTerrain": true orb is destroyed when it hits terrain
+                            (fixes orbs phasing through walls forever).
+  "orbitRegenMode":         how a destroyed orb comes back:
+     "both"  timer AND on fire/toggle (default)
+     "timer" only after orbitRegenTime seconds (best for passive)
+     "fire"  only when you fire / re-toggle the weapon (active modes)
+  "orbitRegenTime": 3       seconds to respawn a destroyed orb (timer).
+  "orbitPopExplosion": true destroyed orb bursts - a small AoE hit at the
+                            spot it died.
+  "orbitPopRadius": 1.5     size of that burst.
+
+  SPIRAL OUTWARD (orbs travel out instead of holding a ring):
+  "orbitSpiral":            how the orbs move outward (default "off"):
+     "off"    classic fixed-radius ring (the default).
+     "launch" orbs spiral OUT from the ship, then detach at the outer edge
+              and fly straight off toward enemies - they do NOT come back,
+              then respawn from the center. A "vortex cannon".
+     "sweep"  orbs spiral out to the edge and reset to the center, over and
+              over - a continuous rotating-sprinkler sweep. They never leave,
+              they just don't orbit back around.
+     While spiraling, orbitRadius is the OUTER edge, and orbitPulse/orbitFling
+     are ignored. Contact damage / destroy / regen still work as above.
+  "orbitSpiralInner": 0.4   radius the spiral STARTS at (near the ship).
+  "orbitSpiralTime": 0.8    seconds to spiral from inner to outer.
+  "orbitSpiralLaunchSpeed": 12  fly-off speed once launched ("launch" mode).
+  "orbitSpiralRange": 14    how far a launched orb travels before it recycles.
+  See ExampleSpiralVortex.json.
+
+HOW THE NUMBERS MAP (per your request):
+  - projectileCount (in the "weapon" block) = the NUMBER of orbs, evenly
+    spaced (4 = N/E/S/W). It's read LIVE, so +projectile modules add orbs
+    and auto-respace them.
+  - damage (in the "weapon" block) = damage per contact hit, read live so
+    +damage modules scale it.
+  - orbitRadius = circle size; orbitSpeed = rotation speed; orbitDirection
+    = which way it spins.
+
+----------------------------------------------------------------
  5. WEAPON FIELDS - ALL WEAPON TYPES
 ----------------------------------------------------------------
 
@@ -356,6 +477,15 @@ These go inside the "weapon": { } block and work on every type.
   "fireRate": 5             Shots per second.
   "warmupTime": 0.5         Seconds of holding fire before the
                             first shot (charge-up).
+  "damageRepeatDelay": 0.1  HITSCAN / LASER weapons only (e.g. the Caps
+                            Laser): seconds between damage ticks on a
+                            target you're holding the beam on. Lower =
+                            damages faster. Default 0.25 (4 ticks/sec).
+                            NOTE: also gated by fireRate - the beam only
+                            re-checks for damage each "shot", so keep
+                            fireRate high enough to hit your intended tick
+                            rate. (Projectiles use piercingData's own
+                            damageRepeatDelay instead - see below.)
   "burstSize": 3            Shots per trigger pull (burst fire).
   "burstDelay": 0.08        Seconds between burst shots.
   "projectileCount": 5      Projectiles per shot (shotgun!).
@@ -396,6 +526,23 @@ These go inside the "weapon": { } block and work on every type.
                             AND a matching larger hit radius. Hitscan:
                             beam thickness. Minions are only recolored,
                             never scaled (scaling breaks their AI).
+  "burnTickRate": 0.1       BURN options (need a burn source - burn from
+  "burnColor": "rainbow"    this weapon, or an AddBurnEffect). While the
+  "burnRgbSpeed": 0.5       weapon is equipped:
+  "burnColorTerrain": true    burnTickRate     ticks/sec ADDED to how fast
+                                               burn ticks on ENEMIES
+                                               (stacks with other burn
+                                               weapons/modules; capped).
+                              burnColor        recolor ENEMY burn flames -
+                                               a color name / #hex, or
+                                               "rainbow" for RGB cycling.
+                              burnRgbSpeed     rainbow only: hue cycles/sec.
+                              burnColorTerrain also recolor burning terrain
+                                               (default false).
+                            Your OWN burn is never sped up or recolored.
+                            These cooperate with the Module Forge mod if
+                            it's installed (no conflict); they also work
+                            with Weapon Forge alone.
 
 Sound fields (shootSfx, startSfx, warmupSfx, releaseSfx...) exist
 but must exactly match sound ids already in the game's audio
@@ -437,9 +584,55 @@ PROJECTILE templates also accept:
                             AutoSeekWhenNeeded
   "piercingData": { "enabled": true, "damageRepeatDelay": 0.2,
                     "knockBackRepeatDelay": 0.2 }
+      Vanilla piercing is UNLIMITED (passes through every enemy). To cap
+      it, use these TOP-LEVEL keys (not inside "weapon"):
+        "pierceLimit": 2          enemies it pierces THROUGH before it
+                                  vanishes on the next contact (that last
+                                  enemy still takes the hit). Auto-enables
+                                  piercing. Projectile weapons only.
+        "pierceDamageFalloff": 0.2  damage lost per enemy pierced (0.2 =
+                                  -20% to each successive enemy).
+        "pierceExplodeOnLimit": true  explode when it hits the cap.
+
+  PHASING (no-clip through terrain) - TOP-LEVEL keys:
+    "phasing": true           the projectile/beam passes THROUGH terrain
+                              but still hits enemies. Works on projectile
+                              and hitscan/laser weapons.
+    "phaseInfiniteRange": true  hitscan/laser only - the beam no longer
+                              stops on walls so it reaches very far. (Or
+                              set "weapon": { "range": N } to your own
+                              value instead.)
+
+  WAVE MOTION (make projectiles fly a curve instead of a straight line):
+  There are TWO flavors -
+   (1) CLEAN SINE "wave beam" (Super Metroid style) - TOP-LEVEL keys:
+    "wave": true              projectile weaves a crisp, repeating S.
+                              Projectile weapons only (NOT usePhysics/lobbed).
+                              Collisions follow the visible curve. See
+                              ExampleWaveBeam.json. NOTE: wave and wobble are
+                              mutually exclusive - if both are on, wave wins
+                              and the wobble is turned off automatically.
+    "waveAngle": 30           how far the heading swings, in degrees (the
+                              "width"/sharpness of the S).
+    "waveFrequency": 2        wiggles per second (with projectileSpeed this
+                              sets the wavelength).
+    "waveMode":               how several projectiles wave together:
+       "single" (default) each shot's S starts centered on its own timer.
+       "synced"  rapid fire forms ONE continuous ribbon (shared clock).
+       "helix"   alternate projectiles start 180 out of phase - the woven
+                 "double helix" look (needs 2+ projectiles).
+   (2) ORGANIC WOBBLE (a random Perlin wander, NOT a clean S) - this is the
+       game's own built-in "movementNoiseData" (below). Two easy ways:
+    "wobble": true            turns it on with sensible defaults.
+    "wobbleAngle": 30         max wander in degrees.
+    "wobbleFrequency": 3      how fast it wanders.
+       ...or set "weapon": { "movementNoiseData": {...} } directly (below).
+
   "projectileBounceData": { "enabled": true }
   "movementNoiseData": { "enabled": true, "angle": 15,
                          "frequency": 6 }
+      Organic Perlin wobble (see "wobble" above for the easy alias). This is
+      a wandering path, not a clean S - use "wave" for a clean wave beam.
   "impactBehaviour": { "enabled": true, "spawnExplosion": true,
                        "fireSub": false, "discharge": false,
                        "safetyDistance": 1 }

@@ -113,6 +113,23 @@
 <div id="form">
 
   <section>
+    <h2>Start from a preset</h2>
+    <div class="grid">
+      <label class="field"><span>preset</span>
+        <select id="f-preset">
+          <option value="">-- start blank --</option>
+          <option value="WhiteTesla">White Tesla (chain lightning)</option>
+          <option value="OrbitRing">Orbit Ring (orbiting projectiles)</option>
+          <option value="WaveBeam">Wave Beam (S-pattern projectiles)</option>
+          <option value="SpiralVortex">Spiral Vortex (spiral out, fly off)</option>
+          <option value="CyanPopper">Cyan Popper (basic example)</option>
+        </select>
+        <em>fills the whole form with a ready-made weapon so you can tweak
+        it, then Save. Overwrites the current form.</em></label>
+    </div>
+  </section>
+
+  <section>
     <h2>Basics</h2>
     <div class="grid">
       <label class="field"><span>name <b class="req">*</b></span>
@@ -274,6 +291,16 @@
       <label class="field"><span>warmupTime</span>
         <input type="number" step="any" data-path="weapon.warmupTime">
         <em>charge-up seconds</em></label>
+      <label class="field"><span>damageRepeatDelay</span>
+        <input type="number" step="any" data-path="weapon.damageRepeatDelay">
+        <em>HITSCAN/laser only: seconds between damage ticks on a held
+        target (lower = faster). Also limited by fireRate.</em></label>
+      <label class="field"><span>burn min</span>
+        <input type="number" step="any" data-path="weapon.burn.Min">
+        <em>fire this weapon applies. Set both to 0 to stop igniting
+        (e.g. the White Tesla).</em></label>
+      <label class="field"><span>burn max</span>
+        <input type="number" step="any" data-path="weapon.burn.Max"></label>
       <label class="field"><span>burstSize</span>
         <input type="number" step="1" data-path="weapon.burstSize"></label>
       <label class="field"><span>burstDelay</span>
@@ -357,6 +384,192 @@
     </details>
 
     <details class="block">
+      <summary><input type="checkbox" class="gate">electric / chain lightning
+        <span class="tag">make a laser fire lightning (White Tesla)</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>dischargeOnFire</span>
+          <select data-path="dischargeOnFire" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>fire chain lightning from a HITSCAN/laser weapon (also fill
+          the discharge block above). Required for lightning.</em></label>
+        <label class="field"><span>chainThroughEnemies</span>
+          <select data-path="chainThroughEnemies" data-type="bool">
+            <option value="">true (default)</option>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+          <em>let the arc hop enemy-to-enemy</em></label>
+        <label class="field"><span>buildupSeconds</span>
+          <input type="number" step="any" data-path="buildupSeconds"
+                 placeholder="2">
+          <em>telegraph time before the strike</em></label>
+        <label class="field"><span>hideBeam</span>
+          <select data-path="hideBeam" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>hide the base laser so only lightning shows</em></label>
+        <label class="field"><span>lightningColor (name, #hex, or rainbow)</span>
+          <input type="text" data-path="lightningColor"
+                 placeholder="cyan, #33ddff, or rainbow">
+          <em>recolor the lightning; global (shared beam), last wins.
+          Leave blank for stock white/blue.</em></label>
+        <label class="field"><span>lightningRgbSpeed</span>
+          <input type="number" step="any" data-path="lightningRgbSpeed"
+                 placeholder="0.5">
+          <em>lightning rainbow only: hue cycles per second</em></label>
+        <label class="field"><span>lightningRange</span>
+          <input type="number" step="any" data-path="lightningRange"
+                 placeholder="e.g. 20">
+          <em>how FAR the lightning reaches/arcs per hop (the real "charge
+          range"). Global to your electricity, player-side only. NOTE: this
+          is NOT chainLength (that's # of hops) or the hitscan range.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">orbit / satellite projectiles
+        <span class="tag">projectiles that circle your ship</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>orbit</span>
+          <select data-path="orbit" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>turn this weapon into an orbit. # of orbs = projectileCount
+          (scales with +projectile mods); per-hit damage = the weapon's
+          damage. Best on a projectile template like White Worm.</em></label>
+        <label class="field"><span>orbitMode</span>
+          <select data-path="orbitMode">
+            <option value="">passive (always on)</option>
+            <option value="passive">passive (always on)</option>
+            <option value="hold">hold fire to spin</option>
+            <option value="toggle">fire toggles on/off</option>
+            <option value="fire">fire = timed ring</option>
+          </select></label>
+        <label class="field"><span>orbitDirection</span>
+          <select data-path="orbitDirection">
+            <option value="">cw</option>
+            <option value="cw">clockwise</option>
+            <option value="ccw">counter-clockwise</option>
+          </select></label>
+        <label class="field"><span>orbitRadius</span>
+          <input type="number" step="any" data-path="orbitRadius"
+                 placeholder="3">
+          <em>circle size (how far the orbs sit from you)</em></label>
+        <label class="field"><span>orbitSpeed</span>
+          <input type="number" step="any" data-path="orbitSpeed"
+                 placeholder="120">
+          <em>spin speed, degrees/second</em></label>
+        <label class="field"><span>orbitContactDamage</span>
+          <select data-path="orbitContactDamage" data-type="bool">
+            <option value="">true</option>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+          <em>damage enemies the orbs touch</em></label>
+        <label class="field"><span>orbitDamageRepeatDelay</span>
+          <input type="number" step="any" data-path="orbitDamageRepeatDelay"
+                 placeholder="0.3">
+          <em>seconds between re-hits on the same enemy</em></label>
+        <label class="field"><span>orbitBlockProjectiles</span>
+          <select data-path="orbitBlockProjectiles" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>orbs destroy enemy shots they touch</em></label>
+        <label class="field"><span>orbitPushForce</span>
+          <input type="number" step="any" data-path="orbitPushForce"
+                 placeholder="0">
+          <em>shove enemies away (0 = off)</em></label>
+        <label class="field"><span>orbitPulse</span>
+          <input type="number" step="any" data-path="orbitPulse"
+                 placeholder="0">
+          <em>radius breathe amount (0 = off)</em></label>
+        <label class="field"><span>orbitSpinUp</span>
+          <input type="number" step="any" data-path="orbitSpinUp"
+                 placeholder="0">
+          <em>seconds to ramp up to full spin (0 = instant)</em></label>
+        <label class="field"><span>orbitFling</span>
+          <select data-path="orbitFling" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>fire makes the orbs surge outward then reform</em></label>
+        <label class="field"><span>orbitSuppressFire</span>
+          <select data-path="orbitSuppressFire" data-type="bool">
+            <option value="">true (pure orbit, no forward shots)</option>
+            <option value="true">true</option>
+            <option value="false">false (also fire normally)</option>
+          </select></label>
+        <label class="field"><span>orbitHitRadius</span>
+          <input type="number" step="any" data-path="orbitHitRadius"
+                 placeholder="0.6">
+          <em>contact size of each orb</em></label>
+        <label class="field"><span>orbitDestroyOnEnemy</span>
+          <select data-path="orbitDestroyOnEnemy" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>orb is destroyed when it hits an enemy</em></label>
+        <label class="field"><span>orbitDestroyOnTerrain</span>
+          <select data-path="orbitDestroyOnTerrain" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>orb is destroyed when it hits terrain</em></label>
+        <label class="field"><span>orbitRegenMode</span>
+          <select data-path="orbitRegenMode">
+            <option value="">both (timer + on fire)</option>
+            <option value="both">both (timer + on fire)</option>
+            <option value="timer">timer only</option>
+            <option value="fire">on fire / toggle only</option>
+          </select>
+          <em>how destroyed orbs come back</em></label>
+        <label class="field"><span>orbitRegenTime</span>
+          <input type="number" step="any" data-path="orbitRegenTime"
+                 placeholder="3">
+          <em>seconds before a destroyed orb respawns (timer)</em></label>
+        <label class="field"><span>orbitPopExplosion</span>
+          <select data-path="orbitPopExplosion" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>destroyed orb bursts (small AoE hit where it died)</em></label>
+        <label class="field"><span>orbitPopRadius</span>
+          <input type="number" step="any" data-path="orbitPopRadius"
+                 placeholder="1.5">
+          <em>burst size (orbitPopExplosion)</em></label>
+        <label class="field"><span>orbitSpiral</span>
+          <select data-path="orbitSpiral">
+            <option value="">off (fixed ring)</option>
+            <option value="launch">launch (spiral out, fly off, don't return)</option>
+            <option value="sweep">sweep (spiral out, recycle - sprinkler)</option>
+          </select>
+          <em>orbs travel outward instead of holding a ring. radius = outer
+              edge; pulse/fling ignored while spiraling</em></label>
+        <label class="field"><span>orbitSpiralInner</span>
+          <input type="number" step="any" data-path="orbitSpiralInner"
+                 placeholder="0.4">
+          <em>radius the spiral starts at (near the ship)</em></label>
+        <label class="field"><span>orbitSpiralTime</span>
+          <input type="number" step="any" data-path="orbitSpiralTime"
+                 placeholder="0.8">
+          <em>seconds to spiral from inner to outer</em></label>
+        <label class="field"><span>orbitSpiralLaunchSpeed</span>
+          <input type="number" step="any" data-path="orbitSpiralLaunchSpeed"
+                 placeholder="12">
+          <em>fly-off speed once launched (launch mode)</em></label>
+        <label class="field"><span>orbitSpiralRange</span>
+          <input type="number" step="any" data-path="orbitSpiralRange"
+                 placeholder="14">
+          <em>distance a launched orb travels before it recycles</em></label>
+      </div>
+    </details>
+
+    <details class="block">
       <summary><input type="checkbox" class="gate">aimAssistData</summary>
       <div class="fields grid">
         <label class="field"><span>enabled</span>
@@ -405,6 +618,25 @@
           <input type="number" step="any" data-path="weapon.projectileScale"
                  placeholder="1.0">
           <em>size multiplier (beam = thickness; minions not scaled)</em></label>
+        <label class="field"><span>burnTickRate</span>
+          <input type="number" step="any" data-path="weapon.burnTickRate"
+                 placeholder="0.1">
+          <em>ticks/sec ADDED to how fast burn ticks on ENEMIES while
+          equipped (needs a burn source). Player's own burn unaffected.</em></label>
+        <label class="field"><span>burnColor (name, #hex, or rainbow)</span>
+          <input type="text" data-path="weapon.burnColor"
+                 placeholder="lime, #00ff00, or rainbow">
+          <em>recolors ENEMY burn flames; "rainbow" cycles RGB</em></label>
+        <label class="field"><span>burnRgbSpeed</span>
+          <input type="number" step="any" data-path="weapon.burnRgbSpeed"
+                 placeholder="0.5">
+          <em>burn rainbow only: hue cycles per second</em></label>
+        <label class="field"><span>burnColorTerrain</span>
+          <select data-path="weapon.burnColorTerrain" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>also recolor burning terrain, not just enemies</em></label>
       </div>
     </details>
   </section>
@@ -430,9 +662,55 @@
           <option value="">keep template</option>
           <option value="true">true</option><option value="false">false</option>
         </select></label>
-      <label class="field"><span>projectilePrefab</span>
-        <input type="text" data-path="weapon.projectilePrefab" placeholder="asset name">
-        <em>steal another weapon's projectile</em></label>
+      <label class="field"><span>projectilePrefab (pick one)</span>
+        <select id="f-proj-prefab-preset">
+          <option value="">-- keep template's projectile --</option>
+          <optgroup label="Basic / white">
+            <option>Ammo Bomb</option>
+            <option>Ammo Blades</option>
+            <option>Ammo Derbis</option>
+            <option>Ammo Beacon</option>
+            <option>Ammo_Worm</option>
+            <option>Ammo_DiscGun</option>
+          </optgroup>
+          <optgroup label="Purple">
+            <option>Ammo Marbles</option>
+            <option>Ammo Flack</option>
+            <option>Ammo_Shard</option>
+          </optgroup>
+          <optgroup label="Caps / fire">
+            <option>Ammo Flame</option>
+            <option>Ammo FireBall</option>
+            <option>Ammo Igniter</option>
+            <option>Ammo Matchbox</option>
+          </optgroup>
+          <optgroup label="Electron">
+            <option>Ammo Zapper</option>
+            <option>Ammo Toroid</option>
+            <option>Ammo CrossRedElectron</option>
+          </optgroup>
+          <optgroup label="Rockets / missiles">
+            <option>Ammo Rocket</option>
+            <option>Ammo Rocket Dart</option>
+            <option>Ammo Rocket Electron</option>
+            <option>Ammo Rocket Fire</option>
+            <option>Ammo Rocket JockRocket</option>
+            <option>Ammo Rocket TurretSeeker</option>
+            <option>Ammo OfficerPurple Missile</option>
+          </optgroup>
+          <optgroup label="Enemy projectiles (advanced)">
+            <option>Ammo SoldierPurple</option>
+            <option>Ammo SoldierTech</option>
+            <option>Ammo Enemy Turret Sniper</option>
+          </optgroup>
+        </select>
+        <em>fills the field below</em></label>
+      <label class="field"><span>projectilePrefab (asset name)</span>
+        <input type="text" id="f-proj-prefab-custom"
+               data-path="weapon.projectilePrefab" placeholder="asset name">
+        <em>steal another weapon's projectile. Any prefab name works; a
+        non-projectile (physics/minion) one harmlessly keeps the
+        template's projectile.</em></label>
     </div>
 
     <details class="block">
@@ -535,6 +813,91 @@
           <input type="number" step="any" data-path="weapon.piercingData.damageRepeatDelay"></label>
         <label class="field"><span>knockBackRepeatDelay</span>
           <input type="number" step="any" data-path="weapon.piercingData.knockBackRepeatDelay"></label>
+        <label class="field"><span>pierceLimit</span>
+          <input type="number" step="1" data-path="pierceLimit"
+                 placeholder="e.g. 2">
+          <em>cap on how many enemies it pierces THROUGH before vanishing
+          (auto-enables piercing). Vanilla piercing is unlimited; leave
+          blank for that.</em></label>
+        <label class="field"><span>pierceDamageFalloff</span>
+          <input type="number" step="any" data-path="pierceDamageFalloff"
+                 placeholder="0">
+          <em>fraction of damage lost per enemy pierced (0.2 = -20% each)</em></label>
+        <label class="field"><span>pierceExplodeOnLimit</span>
+          <select data-path="pierceExplodeOnLimit" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>explode when it hits the pierce cap</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">phasing (no-clip terrain)
+        <span class="tag">pass through walls, still hit enemies</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>phasing</span>
+          <select data-path="phasing" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>projectile/beam passes through terrain but still hits
+          enemies</em></label>
+        <label class="field"><span>phaseInfiniteRange</span>
+          <select data-path="phaseInfiniteRange" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>HITSCAN/laser only: beam no longer stops on walls, so it
+          reaches very far. (Or just set weapon.range to your own value.)</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">wave motion (S-pattern)
+        <span class="tag">clean sine wave beam</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>wave</span>
+          <select data-path="wave" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>projectile flies a crisp, repeating S (Super Metroid wave
+          beam). Projectile weapons only (not physics/lobbed). Collisions
+          follow the curve. If wobble/movementNoiseData is also on, wave
+          wins (the wobble is auto-disabled).</em></label>
+        <label class="field"><span>waveAngle</span>
+          <input type="number" step="any" data-path="waveAngle"
+                 placeholder="30">
+          <em>how far the heading swings, degrees (the "width" of the S)</em></label>
+        <label class="field"><span>waveFrequency</span>
+          <input type="number" step="any" data-path="waveFrequency"
+                 placeholder="2">
+          <em>wiggles per second (with speed, sets the wavelength)</em></label>
+        <label class="field"><span>waveMode</span>
+          <select data-path="waveMode">
+            <option value="">single (each shot's S starts centered)</option>
+            <option value="single">single (each shot's S starts centered)</option>
+            <option value="synced">synced (rapid fire = one continuous ribbon)</option>
+            <option value="helix">helix (alternate shots 180 out of phase - woven)</option>
+          </select>
+          <em>how multiple projectiles wave together</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">movementNoiseData
+        <span class="tag">organic wobble (free, built-in)</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>enabled</span>
+          <select data-path="weapon.movementNoiseData.enabled" data-type="bool">
+            <option value="true" selected>true</option><option value="false">false</option>
+          </select>
+          <em>random Perlin wander (not a clean S - use "wave" for that)</em></label>
+        <label class="field"><span>angle</span>
+          <input type="number" step="any" data-path="weapon.movementNoiseData.angle"></label>
+        <label class="field"><span>frequency</span>
+          <input type="number" step="any" data-path="weapon.movementNoiseData.frequency"></label>
       </div>
     </details>
 
@@ -546,21 +909,6 @@
           <select data-path="weapon.projectileBounceData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
           </select></label>
-      </div>
-    </details>
-
-    <details class="block">
-      <summary><input type="checkbox" class="gate">movementNoiseData
-        <span class="tag">wobbly flight path</span></summary>
-      <div class="fields grid">
-        <label class="field"><span>enabled</span>
-          <select data-path="weapon.movementNoiseData.enabled" data-type="bool">
-            <option value="true" selected>true</option><option value="false">false</option>
-          </select></label>
-        <label class="field"><span>angle</span>
-          <input type="number" step="any" data-path="weapon.movementNoiseData.angle"></label>
-        <label class="field"><span>frequency</span>
-          <input type="number" step="any" data-path="weapon.movementNoiseData.frequency"></label>
       </div>
     </details>
 
@@ -785,6 +1133,9 @@
   <div class="bar">
     <button id="btn-copy">COPY JSON</button>
     <button id="btn-save">SAVE .JSON FILE</button>
+    <button id="btn-load" class="secondary">LOAD .JSON</button>
+    <input id="f-loadfile" type="file" accept=".json,application/json"
+           style="display:none">
     <button id="btn-reset" class="secondary">RESET FORM</button>
   </div>
   <div id="warnings"></div>
@@ -1015,6 +1366,16 @@
       refresh();
     });
 
+  // Projectile-prefab preset dropdown fills the free-text field.
+  document.getElementById("f-proj-prefab-preset")
+    .addEventListener("change", function () {
+      if (this.value) {
+        document.getElementById("f-proj-prefab-custom").value =
+          this.value;
+      }
+      refresh();
+    });
+
   document.getElementById("f-proj-color-preset")
     .addEventListener("change", function () {
       if (this.value) {
@@ -1066,8 +1427,7 @@
     URL.revokeObjectURL(link.href);
   });
 
-  document.getElementById("btn-reset").addEventListener("click", function () {
-    if (!confirm("Clear the whole form?")) return;
+  function resetForm() {
     var fields = document.querySelectorAll("[data-path], #f-name");
     for (var i = 0; i < fields.length; i++) {
       var el = fields[i];
@@ -1078,7 +1438,228 @@
     for (var g = 0; g < gates.length; g++) gates[g].checked = false;
     var blocks = document.querySelectorAll("details.block");
     for (var b = 0; b < blocks.length; b++) blocks[b].open = false;
+  }
+
+  document.getElementById("btn-reset").addEventListener("click", function () {
+    if (!confirm("Clear the whole form?")) return;
+    resetForm();
     refresh();
+  });
+
+  // --- Load an existing weapon .json back into the form to edit it. ---
+  function getByPath(obj, path) {
+    var parts = path.split(".");
+    var node = obj;
+    for (var i = 0; i < parts.length; i++) {
+      if (node === null || typeof node !== "object") return undefined;
+      node = node[parts[i]];
+    }
+    return node;
+  }
+
+  function loadObject(data) {
+    resetForm();
+
+    // Clone so we can massage a couple of shapes without touching input.
+    var d = JSON.parse(JSON.stringify(data));
+
+    // build() turns the builder's flat explosion damageAmount/damageType
+    // into a damages[] list; reverse that so those fields repopulate.
+    if (d.weapon && d.weapon.explosion &&
+        Array.isArray(d.weapon.explosion.damages) &&
+        d.weapon.explosion.damages.length) {
+      var dm = d.weapon.explosion.damages[0] || {};
+      if ("amount" in dm) d.weapon.explosion.damageAmount = dm.amount;
+      if ("damageType" in dm) d.weapon.explosion.damageType = dm.damageType;
+      delete d.weapon.explosion.damages;
+    }
+
+    if (d.name) nameInput.value = d.name;
+    if (d.template) templateSelect.value = d.template;
+
+    var fields = document.querySelectorAll("[data-path]");
+    for (var i = 0; i < fields.length; i++) {
+      var el = fields[i];
+      var val = getByPath(d, el.getAttribute("data-path"));
+      if (val === undefined || val === null) continue;
+      if (typeof val === "object") continue; // only leaf values
+
+      if (el.getAttribute("data-type") === "bool") {
+        el.value = (val === true || val === "true") ? "true" : "false";
+      } else {
+        el.value = String(val);
+      }
+
+      // Reveal + enable the block this field lives in so it's kept.
+      var block = el.closest("details.block");
+      if (block) {
+        var gate = block.querySelector("input.gate");
+        if (gate) gate.checked = true;
+        block.open = true;
+      }
+    }
+
+    refresh();
+  }
+
+  document.getElementById("btn-load").addEventListener("click", function () {
+    document.getElementById("f-loadfile").click();
+  });
+
+  document.getElementById("f-loadfile").addEventListener("change", function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        loadObject(JSON.parse(reader.result));
+      } catch (e) {
+        alert("Couldn't read that file as weapon JSON:\n" + e.message);
+      }
+    };
+    reader.readAsText(file);
+    this.value = ""; // allow re-loading the same file
+  });
+
+  // Built-in presets: ready-made weapons you can pick and edit. Kept in
+  // sync with the example .json files StarterFiles writes.
+  var PRESETS = {
+    "WhiteTesla": {
+      name: "WhiteTesla",
+      displayName: "WHITE TESLA",
+      description: "Experimental electrical discharge cannon.",
+      template: "Module Weapon Caps Laser",
+      slot: "primary",
+      target: "enemies",
+      dischargeOnFire: true,
+      chainThroughEnemies: true,
+      buildupSeconds: 2,
+      hideBeam: true,
+      weapon: {
+        resourceUsed: "Resource White",
+        damage: { amount: 0, damageType: "Resource White" },
+        cost: 1,
+        fireRate: 0.4,
+        range: 12,
+        warmupTime: 0.35,
+        burn: { Min: 0, Max: 0 },
+        discharge: {
+          damage: { amount: 3, damageType: "Resource White" },
+          chainLength: 6,
+          subSystem: "Player"
+        }
+      },
+      module: {
+        color: "ColorWhite",
+        resourceGain: { resource: "Resource White", amount: 12 }
+      }
+    },
+    "OrbitRing": {
+      name: "OrbitRing",
+      displayName: "ORBIT RING",
+      description: "Projectiles orbit your ship, shredding what they touch.",
+      template: "Module Weapon White Worm",
+      slot: "primary",
+      target: "enemies",
+      orbit: true,
+      orbitMode: "passive",
+      orbitDirection: "cw",
+      orbitRadius: 3,
+      orbitSpeed: 140,
+      orbitContactDamage: true,
+      orbitDamageRepeatDelay: 0.3,
+      orbitSpinUp: 1,
+      weapon: {
+        projectileCount: 4,
+        damage: { amount: 4, damageType: "Resource White" }
+      },
+      module: { color: "ColorBlue" }
+    },
+    "CyanPopper": {
+      name: "ForgeExample",
+      displayName: "FORGE EXAMPLE",
+      description: "A fast-firing cyan popper.",
+      template: "Module Weapon White Popper",
+      baseLoadout: "Starter_Popper",
+      weapon: {
+        fireRate: 8,
+        cost: 0.5,
+        damage: { amount: 1.5, damageType: "Resource White" },
+        projectileCount: 1,
+        spread: 0,
+        angleVariance: 3,
+        projectileSpeed: 30,
+        projectileColor: "#33ddff",
+        projectileScale: 1.25
+      },
+      module: {
+        color: "ColorBlue",
+        resourceGain: { resource: "Resource White", amount: 12 }
+      }
+    },
+    "WaveBeam": {
+      name: "WaveBeam",
+      displayName: "WAVE BEAM",
+      description: "Shots ride a clean sine S, weaving toward the enemy.",
+      template: "Module Weapon White Popper",
+      slot: "primary",
+      target: "enemies",
+      wave: true,
+      waveAngle: 35,
+      waveFrequency: 2.5,
+      waveMode: "helix",
+      weapon: {
+        fireRate: 6,
+        cost: 0.5,
+        damage: { amount: 1.5, damageType: "Resource White" },
+        projectileCount: 2,
+        spread: 0,
+        angleVariance: 0,
+        projectileSpeed: 26,
+        projectileColor: "#66ffcc"
+      },
+      module: {
+        color: "ColorBlue",
+        resourceGain: { resource: "Resource White", amount: 12 }
+      }
+    },
+    "SpiralVortex": {
+      name: "SpiralVortex",
+      displayName: "SPIRAL VORTEX",
+      description: "Orbs spiral out from the ship and sling off toward enemies.",
+      template: "Module Weapon White Worm",
+      slot: "primary",
+      target: "enemies",
+      orbit: true,
+      orbitMode: "passive",
+      orbitDirection: "cw",
+      orbitRadius: 4,
+      orbitSpeed: 200,
+      orbitContactDamage: true,
+      orbitDamageRepeatDelay: 0.25,
+      orbitSpiral: "launch",
+      orbitSpiralInner: 0.4,
+      orbitSpiralTime: 0.6,
+      orbitSpiralLaunchSpeed: 14,
+      orbitSpiralRange: 14,
+      weapon: {
+        projectileCount: 5,
+        damage: { amount: 3, damageType: "Resource White" }
+      },
+      module: { color: "ColorPower" }
+    }
+  };
+
+  document.getElementById("f-preset").addEventListener("change", function () {
+    var key = this.value;
+    if (!key || !PRESETS[key]) return;
+    if (!confirm("Load the " + key +
+        " preset? This replaces everything in the form.")) {
+      this.value = "";
+      return;
+    }
+    loadObject(PRESETS[key]);
+    this.value = ""; // it's a one-shot action, not a persistent choice
   });
 
   refresh();
