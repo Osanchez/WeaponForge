@@ -36,6 +36,124 @@ namespace WeaponForge
 ");
 
             File.WriteAllText(
+                Path.Combine(folder, "ExampleWhiteTesla.json"),
+@"{
+  ""name"": ""WhiteTesla"",
+  ""displayName"": ""WHITE TESLA"",
+  ""description"": ""Experimental electrical discharge cannon."",
+  ""template"": ""Module Weapon Caps Laser"",
+  ""slot"": ""primary"",
+  ""target"": ""enemies"",
+  ""dischargeOnFire"": true,
+  ""chainThroughEnemies"": true,
+  ""buildupSeconds"": 2,
+  ""hideBeam"": true,
+  ""weapon"": {
+    ""resourceUsed"": ""Resource White"",
+    ""damage"": { ""amount"": 0, ""damageType"": ""Resource White"" },
+    ""cost"": 1,
+    ""fireRate"": 0.4,
+    ""range"": 12,
+    ""warmupTime"": 0.35,
+    ""burn"": { ""Min"": 0, ""Max"": 0 },
+    ""discharge"": {
+      ""damage"": { ""amount"": 3, ""damageType"": ""Resource White"" },
+      ""chainLength"": 6,
+      ""subSystem"": ""Player""
+    }
+  },
+  ""module"": {
+    ""color"": ""ColorWhite"",
+    ""resourceGain"": { ""resource"": ""Resource White"", ""amount"": 12 }
+  }
+}
+");
+
+            File.WriteAllText(
+                Path.Combine(folder, "ExampleOrbitRing.json"),
+@"{
+  ""name"": ""OrbitRing"",
+  ""displayName"": ""ORBIT RING"",
+  ""description"": ""Projectiles orbit your ship, shredding what they touch."",
+  ""template"": ""Module Weapon White Worm"",
+  ""slot"": ""primary"",
+  ""target"": ""enemies"",
+  ""orbit"": true,
+  ""orbitMode"": ""passive"",
+  ""orbitDirection"": ""cw"",
+  ""orbitRadius"": 3,
+  ""orbitSpeed"": 140,
+  ""orbitContactDamage"": true,
+  ""orbitDamageRepeatDelay"": 0.3,
+  ""orbitSpinUp"": 1,
+  ""weapon"": {
+    ""projectileCount"": 4,
+    ""damage"": { ""amount"": 4, ""damageType"": ""Resource White"" }
+  },
+  ""module"": { ""color"": ""ColorBlue"" }
+}
+");
+
+            File.WriteAllText(
+                Path.Combine(folder, "ExampleWaveBeam.json"),
+@"{
+  ""name"": ""WaveBeam"",
+  ""displayName"": ""WAVE BEAM"",
+  ""description"": ""Shots ride a clean sine S, weaving toward the enemy."",
+  ""template"": ""Module Weapon White Popper"",
+  ""slot"": ""primary"",
+  ""target"": ""enemies"",
+  ""wave"": true,
+  ""waveAngle"": 35,
+  ""waveFrequency"": 2.5,
+  ""waveMode"": ""helix"",
+  ""weapon"": {
+    ""fireRate"": 6,
+    ""cost"": 0.5,
+    ""damage"": { ""amount"": 1.5, ""damageType"": ""Resource White"" },
+    ""projectileCount"": 2,
+    ""spread"": 0,
+    ""angleVariance"": 0,
+    ""projectileSpeed"": 26,
+    ""projectileColor"": ""#66ffcc""
+  },
+  ""module"": {
+    ""color"": ""ColorBlue"",
+    ""resourceGain"": { ""resource"": ""Resource White"", ""amount"": 12 }
+  }
+}
+");
+
+            File.WriteAllText(
+                Path.Combine(folder, "ExampleSpiralVortex.json"),
+@"{
+  ""name"": ""SpiralVortex"",
+  ""displayName"": ""SPIRAL VORTEX"",
+  ""description"": ""Orbs spiral out from the ship and sling off toward enemies."",
+  ""template"": ""Module Weapon White Worm"",
+  ""slot"": ""primary"",
+  ""target"": ""enemies"",
+  ""orbit"": true,
+  ""orbitMode"": ""passive"",
+  ""orbitDirection"": ""cw"",
+  ""orbitRadius"": 4,
+  ""orbitSpeed"": 200,
+  ""orbitContactDamage"": true,
+  ""orbitDamageRepeatDelay"": 0.25,
+  ""orbitSpiral"": ""launch"",
+  ""orbitSpiralInner"": 0.4,
+  ""orbitSpiralTime"": 0.6,
+  ""orbitSpiralLaunchSpeed"": 14,
+  ""orbitSpiralRange"": 14,
+  ""weapon"": {
+    ""projectileCount"": 5,
+    ""damage"": { ""amount"": 3, ""damageType"": ""Resource White"" }
+  },
+  ""module"": { ""color"": ""ColorPower"" }
+}
+");
+
+            File.WriteAllText(
                 Path.Combine(folder, "README.txt"),
 @"WEAPON FORGE - custom weapon definitions
 =========================================
@@ -177,7 +295,22 @@ homingData:   { enabled, targetMode: ""AutoSeekWhenShot"", acceleration,
                 torque, maxSpeed, maxAngularVelocity }
 piercingData: { enabled, damageRepeatDelay, knockBackRepeatDelay }
 projectileBounceData: { enabled }
-movementNoiseData:    { enabled, angle, frequency }
+movementNoiseData:    { enabled, angle, frequency }  (organic Perlin wobble)
+
+WAVE / CURVED MOTION (top-level keys, projectile weapons)
+---------------------------------------------------------
+wave:true + waveAngle + waveFrequency + waveMode (single/synced/helix)
+   a clean, repeating sine ""S"" (Super Metroid wave beam). Collisions
+   follow the curve. See ExampleWaveBeam.json.
+wobble:true + wobbleAngle + wobbleFrequency
+   easy alias for the game's organic movementNoiseData wander (above).
+
+SPIRAL ORBIT (top-level keys, on an orbit weapon)
+-------------------------------------------------
+orbitSpiral: ""launch"" (spiral out then fly off, don't return) or
+   ""sweep"" (spiral out and recycle - sprinkler). Plus orbitSpiralInner,
+   orbitSpiralTime, orbitSpiralLaunchSpeed, orbitSpiralRange. See
+   ExampleSpiralVortex.json.
 impactBehaviour:      { enabled, spawnExplosion, fireSub, discharge }
 electricityData:      { enabled, isSource, chainLength, conductivity,
                         damage: {...}, ... }

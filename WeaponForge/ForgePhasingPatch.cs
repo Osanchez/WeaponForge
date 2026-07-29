@@ -1,0 +1,52 @@
+using System;
+using BepInEx.Logging;
+using HarmonyLib;
+using UnityEngine;
+
+namespace WeaponForge
+{
+    // Makes a projectile phase through terrain. Projectile.Shoot sets
+    // collisionLayerMask = the layer's physics collision matrix (which
+    // includes Ground). For a projectile tagged ForgePhasing we strip the
+    // Ground bit afterward, so its CircleCast never detects terrain - it
+    // passes through walls but still collides with enemies. Stripping a
+    // bit is idempotent, so this is safe even if another mod also patches
+    // Projectile.Shoot for phasing.
+    [HarmonyPatch(typeof(Projectile), "Shoot")]
+    public class ForgePhasingPatch
+    {
+        private static readonly ManualLogSource Log =
+            BepInEx.Logging.Logger.CreateLogSource("WeaponForge");
+
+        private static AccessTools.FieldRef<Projectile, int> _maskRef;
+        private static bool _ready;
+        private static int _groundBit = -2;
+
+        static void Postfix(Projectile __instance)
+        {
+            try
+            {
+                if (__instance.GetComponent<ForgePhasing>() == null)
+                    return;
+
+                if (!_ready)
+                {
+                    _maskRef = AccessTools.FieldRefAccess<Projectile, int>(
+                        "collisionLayerMask");
+                    int g = LayerMask.NameToLayer("Ground");
+                    _groundBit = (g >= 0) ? (1 << g) : 0;
+                    _ready = true;
+                }
+
+                if (_maskRef == null || _groundBit == 0)
+                    return;
+
+                _maskRef(__instance) &= ~_groundBit;
+            }
+            catch (Exception e)
+            {
+                Log.LogError("Phasing patch failed: " + e);
+            }
+        }
+    }
+}
