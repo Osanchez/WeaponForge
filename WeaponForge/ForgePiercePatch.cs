@@ -24,6 +24,13 @@ namespace WeaponForge
         {
             try
             {
+                // When ModuleForge is installed it owns pierce counting and
+                // ADDS this weapon's baked cap to any module caps (one counter,
+                // additive). Stand down here so we don't double-count / cap
+                // early. Standalone, we count as normal below.
+                if (ForgePierceCompat.ModuleForgePresent)
+                    return;
+
                 var cap = __instance.GetComponent<ForgePierceCap>();
                 if (cap == null || listener == null)
                     return;

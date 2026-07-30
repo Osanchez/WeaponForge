@@ -127,6 +127,9 @@
     <Compile Include="ForgePhasingPatch.cs" />
     <Compile Include="ForgePierceCap.cs" />
     <Compile Include="ForgePiercePatch.cs" />
+    <Compile Include="ForgeWeaponInfo.cs" />
+    <Compile Include="ForgeWeaponStatsPatch.cs" />
+    <Compile Include="ForgePierceCompat.cs" />
     <Compile Include="ForgeWaveMotion.cs" />
     <Compile Include="ForgeWavePatch.cs" />
     <Compile Include="StarterFiles.cs" />

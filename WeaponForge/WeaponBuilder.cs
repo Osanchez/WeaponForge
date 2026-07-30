@@ -700,11 +700,18 @@ namespace WeaponForge
             {
                 GameObject clone = VisualCustomizer.ClonePrefab(
                     pw.projectilePrefab.gameObject);
-                if (clone.GetComponent<ForgePhasing>() == null)
-                    clone.AddComponent<ForgePhasing>();
                 var comp = clone.GetComponentInChildren<Projectile>(true);
                 if (comp != null)
+                {
+                    // Attach to the SAME GameObject as the Projectile so the
+                    // Shoot patch's GetComponent<ForgePhasing>() finds it, and
+                    // so it isn't dropped when the prefab is instantiated from
+                    // a Projectile that sits on a child of the prefab root.
+                    if (comp.GetComponent<ForgePhasing>() == null)
+                        comp.gameObject.AddComponent<ForgePhasing>();
                     pw.projectilePrefab = comp;
+                }
+                ForgeWeaponInfo.SetPhasing(weapon);
                 Log.LogInfo(fileName + ": phasing projectile");
             }
 
@@ -717,6 +724,7 @@ namespace WeaponForge
                 if ((bool?)root["phaseInfiniteRange"] ?? false)
                     hs.range = 1000f;
 
+                ForgeWeaponInfo.SetPhasing(weapon);
                 Log.LogInfo(fileName + ": phasing beam (terrain ignored)");
             }
         }
@@ -754,17 +762,25 @@ namespace WeaponForge
             GameObject clone = VisualCustomizer.ClonePrefab(
                 pw.projectilePrefab.gameObject);
 
-            var cap = clone.GetComponent<ForgePierceCap>();
+            var comp = clone.GetComponentInChildren<Projectile>(true);
+            if (comp == null)
+            {
+                Log.LogWarning(fileName + ": pierce - no Projectile on prefab.");
+                return;
+            }
+
+            // Attach to the Projectile's OWN GameObject (see phasing note) so
+            // the TryHit patch finds it and it survives instantiation.
+            var cap = comp.GetComponent<ForgePierceCap>();
             if (cap == null)
-                cap = clone.AddComponent<ForgePierceCap>();
+                cap = comp.gameObject.AddComponent<ForgePierceCap>();
 
             cap.limit = Mathf.Max(0, limit.Value);
             cap.falloff = (float?)root["pierceDamageFalloff"] ?? 0f;
             cap.explodeOnLimit = (bool?)root["pierceExplodeOnLimit"] ?? false;
 
-            var comp = clone.GetComponentInChildren<Projectile>(true);
-            if (comp != null)
-                pw.projectilePrefab = comp;
+            ForgeWeaponInfo.SetPierce(weapon, cap.limit);
+            pw.projectilePrefab = comp;
 
             Log.LogInfo(
                 fileName + ": pierce limit " + cap.limit +

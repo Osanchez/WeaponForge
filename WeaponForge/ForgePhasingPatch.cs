@@ -18,7 +18,7 @@ namespace WeaponForge
         private static readonly ManualLogSource Log =
             BepInEx.Logging.Logger.CreateLogSource("WeaponForge");
 
-        private static AccessTools.FieldRef<Projectile, int> _maskRef;
+        private static AccessTools.FieldRef<Projectile, LayerMask> _maskRef;
         private static bool _ready;
         private static int _groundBit = -2;
 
@@ -31,7 +31,11 @@ namespace WeaponForge
 
                 if (!_ready)
                 {
-                    _maskRef = AccessTools.FieldRefAccess<Projectile, int>(
+                    // The field is a LayerMask struct, NOT an int. Asking
+                    // FieldRefAccess for <Projectile,int> throws (value-type
+                    // mismatch), which silently broke phasing - so read it as
+                    // a LayerMask and strip the Ground bit off its .value.
+                    _maskRef = AccessTools.FieldRefAccess<Projectile, LayerMask>(
                         "collisionLayerMask");
                     int g = LayerMask.NameToLayer("Ground");
                     _groundBit = (g >= 0) ? (1 << g) : 0;
@@ -41,7 +45,9 @@ namespace WeaponForge
                 if (_maskRef == null || _groundBit == 0)
                     return;
 
-                _maskRef(__instance) &= ~_groundBit;
+                LayerMask mask = _maskRef(__instance);
+                mask.value &= ~_groundBit;
+                _maskRef(__instance) = mask;
             }
             catch (Exception e)
             {

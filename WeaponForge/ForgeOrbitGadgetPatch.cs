@@ -81,14 +81,17 @@ namespace WeaponForge
 
                     switch (cfg.mode)
                     {
-                        case ForgeOrbit.Mode.Toggle:
-                            ctrl.toggledOn = !ctrl.toggledOn;
-                            break;
                         case ForgeOrbit.Mode.Fire:
                             ctrl.fireActiveUntil = Time.time + cfg.fireDuration;
                             break;
-                        default: // passive / hold: start it and keep it on
-                            ctrl.toggledOn = true;
+                        default:
+                            // A gadget is press-driven, so every non-"fire"
+                            // mode behaves as a toggle: press the key to turn
+                            // the ring on, press again to turn it off. (This
+                            // is what "toggle" always did; "passive"/"hold"
+                            // get it too, since a gadget can't be truly
+                            // always-on - it needs the first press anyway.)
+                            ctrl.toggledOn = !ctrl.toggledOn;
                             break;
                     }
 
