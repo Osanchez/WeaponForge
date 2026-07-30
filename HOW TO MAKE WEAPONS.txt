@@ -414,11 +414,14 @@ These are TOP-LEVEL keys (not inside "weapon"):
   GADGET SLOTS (gadget1/2/3, the 1/2/3 keys): orbit works here too, but a
   gadget is PRESS-activated (it has no "held" or always-on fire like a
   primary weapon), so the modes map to the gadget key like this:
-     "toggle"  press the gadget key to turn the ring on/off  (BEST FIT)
-     "fire"    press to summon the ring for orbitFireDuration seconds
-     "passive"/"hold"  press ONCE to start it; then it stays on
-  So a "passive" orbit in a gadget slot needs one key press to switch on
-  (it can't auto-start there). For a gadget, "toggle" usually feels best.
+     "toggle"          press the gadget key to turn the ring on/off
+     "passive"/"hold"  same on a gadget - press to turn on, press to turn off
+                       (a gadget can't be truly always-on, so it needs the
+                       first press anyway; a second press switches it off)
+     "fire"            press to summon the ring for orbitFireDuration seconds
+  So on a gadget, every mode except "fire" is a simple on/off toggle. A
+  primary/secondary orbit still respects passive/hold/toggle as described
+  above - this only changes how gadgets behave.
   "orbitDirection": "cw" or "ccw"   spin direction (default cw).
   "orbitRadius": 3          circle size - how far the orbs sit from you.
   "orbitSpeed": 140         spin speed in degrees/second.

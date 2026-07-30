@@ -450,9 +450,10 @@
             <option value="fire">fire = timed ring</option>
           </select>
           <em>works in primary/secondary AND gadget slots. In a GADGET slot
-          the mode maps to the gadget key: toggle = press on/off (best),
-          fire = press for a timed ring, passive/hold = press once to start
-          (a gadget can't auto-start, so passive needs one press).</em></label>
+          every mode except "fire" is a simple on/off toggle (press the
+          gadget key to turn the ring on, press again to turn it off);
+          "fire" = press for a timed ring. (Primary/secondary keep the full
+          passive/hold/toggle behavior.)</em></label>
         <label class="field"><span>orbitDirection</span>
           <select data-path="orbitDirection">
             <option value="">cw</option>
