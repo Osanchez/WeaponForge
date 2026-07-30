@@ -27,16 +27,28 @@ namespace WeaponForge
         }
 
         private ForgeOrbit.Config cfg;
-        private Shooter shooter;
+
+        // The controller doesn't care whether it's driven by a primary/
+        // secondary Shooter or a gadget - it just needs the owner ship and a
+        // way to read the CURRENT weapon (for live orb count + damage).
+        private Unit unit;
+        private System.Func<WeaponBase> getWeapon;
 
         // Driven by ForgeOrbitPatch for Toggle / Fire modes.
         public bool toggledOn;
         public float fireActiveUntil;
 
+        // Gadgets have no per-frame Shooter driver, so a gadget controller
+        // decides its own active state from mode + toggledOn / fireActiveUntil.
+        // (Primary/secondary keep being driven externally each frame.)
+        public bool selfDriven;
+
         private bool active;
         private float angleDeg;
         private float activeSince;
         private float flingUntil;
+
+        private WeaponBase weapon;   // cached each frame from getWeapon()
 
         private readonly List<Orb> orbs = new List<Orb>();
         private readonly Dictionary<HealthBase, float> lastHit =
@@ -48,10 +60,12 @@ namespace WeaponForge
         private readonly List<Collider2D> buffer = new List<Collider2D>();
         private bool _filtersReady;
 
-        public void Init(ForgeOrbit.Config config, Shooter owner)
+        public void Init(
+            ForgeOrbit.Config config, Unit owner, System.Func<WeaponBase> weaponGetter)
         {
             cfg = config;
-            shooter = owner;
+            unit = owner;
+            getWeapon = weaponGetter;
         }
 
         public void SetActive(bool a)
@@ -122,8 +136,29 @@ namespace WeaponForge
 
         private void Update()
         {
-            if (cfg == null || shooter == null || shooter.Unit == null)
+            if (cfg == null || unit == null || unit.transform == null)
                 return;
+
+            weapon = (getWeapon != null) ? getWeapon() : null;
+
+            // Gadgets self-manage their active state (no Shooter driving us).
+            if (selfDriven)
+            {
+                bool a;
+                switch (cfg.mode)
+                {
+                    case ForgeOrbit.Mode.Toggle:
+                        a = toggledOn;
+                        break;
+                    case ForgeOrbit.Mode.Fire:
+                        a = Time.time < fireActiveUntil;
+                        break;
+                    default: // passive / hold: on once first activated
+                        a = toggledOn;
+                        break;
+                }
+                SetActive(a);
+            }
 
             if (!active)
             {
@@ -136,8 +171,8 @@ namespace WeaponForge
             EnsureFilters();
 
             int count = 4;
-            if (shooter.Weapon != null)
-                count = Mathf.Max(1, Mathf.RoundToInt(shooter.Weapon.ProjectileCount));
+            if (weapon != null)
+                count = Mathf.Max(1, Mathf.RoundToInt(weapon.ProjectileCount));
             SetOrbCount(count);
 
             float spinMul = (cfg.spinUpSeconds > 0f)
@@ -161,7 +196,7 @@ namespace WeaponForge
                 }
             }
 
-            Vector3 center = shooter.Unit.transform.position;
+            Vector3 center = unit.transform.position;
             float step = 360f / count;
 
             for (int i = 0; i < orbs.Count; i++)
@@ -289,7 +324,7 @@ namespace WeaponForge
 
         private bool DamageAt(Vector3 pos)
         {
-            if (shooter.Weapon == null)
+            if (weapon == null)
                 return false;
 
             bool hit = false;
@@ -312,7 +347,7 @@ namespace WeaponForge
                     continue;
                 }
 
-                hb.TakeDamage(shooter.Weapon.Damage);
+                hb.TakeDamage(weapon.Damage);
                 lastHit[hb] = Time.time;
             }
             return hit;
@@ -362,7 +397,7 @@ namespace WeaponForge
 
         private void Pop(Vector3 pos)
         {
-            if (shooter.Weapon == null)
+            if (weapon == null)
                 return;
 
             int n = Physics2D.OverlapCircle(pos, cfg.popRadius, enemyFilter, buffer);
@@ -370,7 +405,7 @@ namespace WeaponForge
             {
                 var hb = buffer[j].GetComponentInParent<HealthBase>();
                 if (hb != null)
-                    hb.TakeDamage(shooter.Weapon.Damage);
+                    hb.TakeDamage(weapon.Damage);
             }
         }
 

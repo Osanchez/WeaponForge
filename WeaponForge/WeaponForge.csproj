@@ -122,6 +122,7 @@
     <Compile Include="ForgeOrbit.cs" />
     <Compile Include="ForgeOrbitController.cs" />
     <Compile Include="ForgeOrbitPatch.cs" />
+    <Compile Include="ForgeOrbitGadgetPatch.cs" />
     <Compile Include="ForgePhasing.cs" />
     <Compile Include="ForgePhasingPatch.cs" />
     <Compile Include="ForgePierceCap.cs" />

@@ -32,7 +32,9 @@ namespace WeaponForge
                 go.transform.SetParent(shooter.Unit.transform, false);
 
             ctrl = go.AddComponent<ForgeOrbitController>();
-            ctrl.Init(cfg, shooter);
+            // Primary/secondary: driven each frame by OnUpdate below, so the
+            // weapon is read live off the Shooter (it can be recreated).
+            ctrl.Init(cfg, shooter.Unit, () => shooter.Weapon);
             _ctrls[shooter] = ctrl;
             return ctrl;
         }
