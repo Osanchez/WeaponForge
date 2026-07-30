@@ -399,8 +399,9 @@ come from the lightning (like the Tesla).
 ----------------------------------------------------------------
 
 Turns a weapon's projectiles into a ring that orbits your ship. See
-ExampleOrbitRing.json (based on the White Worm). Put it in a WEAPON slot
-(primary/secondary). These are TOP-LEVEL keys (not inside "weapon"):
+ExampleOrbitRing.json (based on the White Worm). Works in a WEAPON slot
+(primary/secondary) AND in a GADGET slot (see the gadget note below).
+These are TOP-LEVEL keys (not inside "weapon"):
 
   "orbit": true             REQUIRED - makes this an orbit weapon.
   "orbitMode":              how it runs:
@@ -409,6 +410,15 @@ ExampleOrbitRing.json (based on the White Worm). Put it in a WEAPON slot
                 orbitHoldDrainPerSecond is set)
      "toggle"   tap fire to turn the ring on/off
      "fire"     tap fire to (re)summon the ring for orbitFireDuration sec
+
+  GADGET SLOTS (gadget1/2/3, the 1/2/3 keys): orbit works here too, but a
+  gadget is PRESS-activated (it has no "held" or always-on fire like a
+  primary weapon), so the modes map to the gadget key like this:
+     "toggle"  press the gadget key to turn the ring on/off  (BEST FIT)
+     "fire"    press to summon the ring for orbitFireDuration seconds
+     "passive"/"hold"  press ONCE to start it; then it stays on
+  So a "passive" orbit in a gadget slot needs one key press to switch on
+  (it can't auto-start there). For a gadget, "toggle" usually feels best.
   "orbitDirection": "cw" or "ccw"   spin direction (default cw).
   "orbitRadius": 3          circle size - how far the orbs sit from you.
   "orbitSpeed": 140         spin speed in degrees/second.
