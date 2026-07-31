@@ -83,8 +83,11 @@ Search the log for "WeaponForge".
                                      (the 1/2/3 keys). See section 4b.
   "source": "starter",            <- Optional. Where it can appear:
                                      "starter" (new-game pick, default),
-                                     "loot" (drops from crates), or
-                                     "starterAndLoot" (both). See 4c.
+                                     "loot" (drops from crates),
+                                     "starterAndLoot" (both), or
+                                     "none" (never offered - for helper
+                                     weapons like subEmitter stages and
+                                     turret ammo). See 4c.
   "lootWeight": 10,               <- Optional, loot only. Drop chance
                                      vs other crate modules (default 10).
   "shop": true,                   <- Optional. Buyable in the in-run
@@ -121,7 +124,7 @@ each type has its own extra fields (section 6).
 PROJECTILE WEAPONS (bullets, machine guns, rifles, missiles):
   Module Weapon White Popper      - basic machine gun
   Module Weapon White Bolt        - rifle-style bolt
-  Module Weapon White Dart        - darts / missiles
+  Module Weapon White Dart        - homing dart (a MISSILE - see 6c)
   Module Weapon White Shotgun     - spread shot
   Module Weapon White Blades      - blades
   Module Weapon White Derbis      - debris chunks
@@ -129,27 +132,44 @@ PROJECTILE WEAPONS (bullets, machine guns, rifles, missiles):
   Module Weapon Purple Marbles    - bouncing marbles
   Module Weapon Purple Flack      - flak burst
   Module Weapon Purple Shard      - shards
-  Module Weapon Purple Rocket     - rockets
-  Module Weapon Caps Rocket       - rockets (caps resource)
+  Module Weapon Purple Rocket     - MISSILE (see 6c)
+  Module Weapon Caps Rocket       - MISSILE, caps resource (6c)
   Module Weapon Caps Flame        - flamethrower-ish
-  Module Weapon Electron Rocket   - electric rocket
+  Module Weapon Electron Rocket   - MISSILE, electric (6c)
   Module Weapon Electron Zapper   - electric chain projectile
   Module Weapon Electron Toroid   - electric toroid
   Module Weapon White Worm
 
-HITSCAN WEAPONS (instant laser beams):
+HITSCAN WEAPONS (instant laser beams) - see 6d:
   Module Weapon Caps Laser
+  Weapon Crawler Laser            - also melts terrain (cellConvertData)
+  Enemy beams: Weapon_Fly_Laser, Weapon_Turret_Laser, Weapon_PhantomDrone,
+  Weapon_Laser_CrossQueen, Weapon Unit CrossLaser / CrossRedLaser /
+  CrossJockLaser, Weapon Laser CrossTablet, Weapon CrossPin, Weapon OneShot4
 
-PHYSICS WEAPONS (heavy lobbed objects with gravity/physics):
+LOBBED / PHYSICS WEAPONS (objects that arc, tumble and bounce):
+  Module Weapon White Derbis      - debris chunks
+  Module Weapon Purple Flack      - flak burst
   Module Weapon Caps Loon
   Module Weapon Purple Can
   Module Weapon Purple ClusterCube
   Module Weapon Tech Dandelion    - (the "purple dandelion" - its
                                      real asset name is Tech)
 
-MINION SPAWNERS (pet/drone weapons):
+  These are NOT a separate weapon type. Every one of them is an ordinary
+  PROJECTILE weapon with "usePhysics": true, which makes it throw a
+  physics object instead of a straight-flying shot. That means the whole
+  projectile field set below applies to them - see section 6b.
 
-  Module Weapon Fly
+MINION SPAWNERS (pet/drone weapons) - see 6e:
+  Weapon Minion CrossSmallCaps
+  Weapon Minion Cross Red
+  Weapon Minion CrossRedBomber
+  Weapon_Minion_CrossQueen
+  Weapon FloaterOfficerCaps Mines
+  (These are all raw ENEMY assets - they are the only true minion
+  spawners in the game. NOTE: "Module Weapon Fly" is NOT one; it is an
+  ordinary projectile weapon.)
 
 
 ENEMY / RAW WEAPONS (advanced):
@@ -240,6 +260,12 @@ Example - turn a custom rocket into a gadget on key 1:
                     crates you smash open during a run, never on the
                     start screen
   "starterAndLoot"  both
+  "none"            NEVER offered - not a start pick, not a drop. The
+                    weapon is still BUILT and registered, so other things
+                    can reference it by name ("Forge Weapon <name>"). This
+                    is what you want for helper weapons: subEmitter stages
+                    and turret ammo. ("shop" is a separate toggle and is
+                    off by default, so "none" on its own = nowhere at all.)
 
 HOW LOOT WORKS: the game's crates roll their module from a weighted
 pool. A loot-enabled Forge weapon is added into those crate module
@@ -424,11 +450,50 @@ These are TOP-LEVEL keys (not inside "weapon"):
   above - this only changes how gadgets behave.
   "orbitDirection": "cw" or "ccw"   spin direction (default cw).
   "orbitRadius": 3          circle size - how far the orbs sit from you.
+                            With several rings this is the INNERMOST ring.
+
+  MULTIPLE RINGS (nested rings around the ship):
+  "orbitRings": 3           how many concentric rings (default 1).
+  "orbitRingMode":          how projectileCount is used:
+     "split" (default) the count is SHARED across the rings, dealt out
+              round-robin so they stay even. Adding rings re-arranges the
+              orbs you already have instead of making more.
+     "full"   EVERY ring gets the full count, so you end up with
+              projectileCount x rings orbs.
+  "orbitRingSpacing": 1.5   gap between one ring and the next, world units.
+  "orbitRingStagger":       where the orbs sit within each ring:
+     "auto" (default) offsets each ring by half a slot so the orbs
+              interleave rather than lining up
+     "aligned" all rings share the same angles - orbs form spokes
+     a number  degrees of offset added per ring (e.g. 15)
+  "orbitRingAlternate": true  flip the spin direction on every other ring,
+                            giving counter-rotating rings.
+  "orbitRingSpeedStep": 0.6  speed multiplier applied per ring outward.
+                            1 = every ring spins together; 0.6 = each ring
+                            out is 60% the speed of the one inside it;
+                            above 1 = outer rings whip round faster.
+  Rings work with everything else: contact damage, blocking, destructible
+  orbs + regen, and the spiral modes (each ring spirals out to its own
+  radius).
   "orbitSpeed": 140         spin speed in degrees/second.
   "orbitContactDamage": true  orbs damage enemies they touch (default true).
+  "orbitWeaponEffects": true  default true. An orb hit delivers the weapon's
+                            WHOLE payload, not just raw damage: burn, the
+                            "got attacked" reaction (aggro), kill credit,
+                            and the weapon's explosion + discharge/lightning
+                            are spawned where the orb touched. Set false for
+                            plain contact damage only. NOTE the explosion and
+                            discharge fire on every damaging contact, so they
+                            follow orbitDamageRepeatDelay - raise that if a
+                            big explosion feels too spammy.
   "orbitDamageRepeatDelay": 0.3  seconds before an orb can re-hit the SAME
                             enemy (stops instant melt).
-  "orbitBlockProjectiles": true  orbs destroy enemy shots they touch.
+  "orbitBlockProjectiles": true  orbs shoot down enemy BULLETS they touch,
+                            turning the ring into a shield. The catch radius
+                            is orbitHitRadius - a very fast enemy shot can
+                            slip between two orbs in one frame, so widen
+                            orbitHitRadius (or add orbs) if things get
+                            through.
   "orbitPushForce": 0       shove enemies away on contact (0 = off). Set
                             contactDamage false + a push for a pure shield.
   "orbitPulse": 0           radius breathes in/out by this much (0 = off).
@@ -478,6 +543,132 @@ HOW THE NUMBERS MAP (per your request):
     +damage modules scale it.
   - orbitRadius = circle size; orbitSpeed = rotation speed; orbitDirection
     = which way it spins.
+
+----------------------------------------------------------------
+ 4d. SUB-EMITTERS (a shot that fires another WEAPON when it ends)
+----------------------------------------------------------------
+
+"subEmitter" (inside "weapon") names ANOTHER weapon that gets fired at
+the spot where this shot dies - cluster bombs, flak bursts, shrapnel.
+It's a stock game field, so it works with no extra mod support. Big
+thanks to the PUNK Discord for surfacing this one.
+
+  "weapon": {
+    "subEmitter": "Forge Weapon White Popper Sub",
+    "rangeData":        { "enabled": true, "destroyWhenReached": true,
+                          "fireSub": true },
+    "impactBehaviour":  { "enabled": true, "fireSub": true }
+  }
+
+FOUR THINGS THAT MATTER:
+
+1. NAMING. For one of YOUR WeaponForge weapons the name is
+   "Forge Weapon " + the "name" field of its .json. So a sub whose
+   json says "name": "White Popper Sub" is referenced as
+   "Forge Weapon White Popper Sub". (Stock weapon asset names work too.)
+
+2. IT NEEDS A TRIGGER. Setting subEmitter alone does nothing - the sub
+   only fires where you set "fireSub": true:
+     rangeData.fireSub        when the shot reaches max range
+                              (also needs enabled + destroyWhenReached)
+     lifetimeData.fireSub     when the shot's timer runs out
+     impactBehaviour.fireSub  on impact - works on ENEMIES AND TERRAIN
+                              (also needs enabled; an impact closer than
+                              impactBehaviour.safetyDistance is ignored,
+                              the shot just bounces - that's usually why
+                              a terrain test "does nothing")
+
+3. SUBS FIRE STRAIGHT UP. The sub is fired from the dead shot's position
+   with a fixed UPWARD direction - it does NOT inherit the parent's
+   heading. Give the sub weapon "spread": 360 (plus a few
+   projectileCount) so it bursts outward like shrapnel.
+
+4. CHAINING + LOAD ORDER. A sub can have its own subEmitter, so chains
+   nest as deep as you like. Weapon files load ALPHABETICALLY, and a sub
+   must already be built when the weapon referencing it loads - so name
+   the files in REVERSE chain order:
+     00_Shrapnel.json  (deepest sub, no subEmitter)
+     01_PopperSub.json (subEmitter -> Forge Weapon White Shrapnel Sub)
+     FlakCannon.json   (subEmitter -> Forge Weapon White Popper Sub)
+   WARNING: a chain that loops back on itself (A -> B -> A) will hang
+   the game on load. Keep chains one-way.
+
+HIDING THE HELPER SUBS: a sub weapon works even if you can never obtain
+it, so keep them out of your runs with "source": "none".
+
+Sub weapons are fired directly, so they DON'T charge their "cost" - set
+the parent weapon's cost for balance instead.
+
+----------------------------------------------------------------
+ 4e. TURRET / MINE (a shot that keeps firing WHILE it's alive)
+----------------------------------------------------------------
+
+subEmitter (4d) only fires when a shot DIES. "turret" makes a projectile
+fire another weapon over and over WHILE IT LIVES, and optionally hurt
+anything touching it. Classic use: a disc that glides to a stop, sprays
+for a few seconds, then vanishes. See ExampleTurretDisc.json (+ its ammo
+ExampleTurretShot.json). TOP-LEVEL keys:
+
+  "turret": true            REQUIRED. Projectile weapons only (NOT
+                            usePhysics/lobbed).
+  "turretWeapon": "..."     REQUIRED. The weapon fired each volley. For
+                            your own weapons that's
+                            "Forge Weapon " + its "name" field. Looked up
+                            at RUNTIME, so unlike subEmitter the file
+                            LOAD ORDER DOESN'T MATTER.
+  "turretInterval": 0.5     seconds between volleys.
+  "turretDelay": 0.8        seconds before the FIRST volley - set this to
+                            about the flight time so it starts shooting
+                            once it has settled into place.
+  "turretAim":              how each volley is aimed:
+     "rotate"  (default) sweeps around, making a spiral
+     "nearest" auto-targets the closest enemy; holds fire if none
+  "turretRotation": 140     sweep speed, degrees/second ("rotate").
+                            0 = always fires the same direction.
+  "turretDirection": "cw"   or "ccw" - sweep direction.
+  "turretStartAngle": 0     angle of the first volley ("rotate").
+  "turretRange": 12         target search radius ("nearest").
+  "turretContactDamage": true  MINE behaviour - enemies touching it take
+                            this weapon's damage, and the disc does NOT
+                            die or explode.
+  "turretContactRadius": 0.6   touch radius.
+  "turretContactDelay": 0.4    seconds before the SAME enemy is hurt again.
+
+FIRING IS FREE: volleys spend no resource (the cost is charged when YOU
+pull the trigger, not by the turret). Balance with the parent's "cost".
+
+MAKING IT HOVER (in the "weapon" block):
+  "rangeData": { "enabled": true, "range": 5, "slowDown": true,
+                 "destroyWhenReached": false }
+        slowDown eases it to a dead stop; destroyWhenReached:false keeps
+        it alive sitting there.
+  "lifetimeData": { "enabled": true, "time": 4 }     how long it lasts.
+  "impactBehaviour": { "enabled": false }            so bumping something
+        doesn't kill it.
+  "projectileBounceData": { "enabled": true, "layerMask": ["Ground"] }
+        optional - ricochet off walls on the way out. NOTE: "enabled" on
+        its own does nothing; most templates ship an EMPTY layerMask, so
+        you must list the layers to bounce off.
+  Do NOT give it a "pierceLimit" - the pierce cap would delete it.
+
+SET FOR YOU AUTOMATICALLY (so the thing actually behaves):
+  * The turret OWNS contact damage, so the projectile's own collision
+    damage is zeroed out - otherwise every touch would be counted twice,
+    on two different cooldowns.
+  * Piercing is switched on. Without it the game snaps the projectile
+    onto whatever it touches, so enemies would shove your "hovering"
+    disc around the room. Walls still stop (or bounce) it.
+  * If the weapon has NO way to expire (no lifetime, no
+    destroyWhenReached, no impact), a lifetime is forced - otherwise
+    every shot would leave a permanent turret behind.
+  * "turret" is ignored on an orbit weapon, and a turret is not allowed
+    to fire itself (both would multiply without bound).
+
+WHY CONTACT DAMAGE IS HANDLED BY THE TURRET: a projectile collides by
+sweeping along its own movement, so once it stops dead it may detect
+nothing at all. The turret does its own radius check every frame, so a
+parked mine still damages what touches it - and because it owns the
+damage there's exactly one hit per contactDelay.
 
 ----------------------------------------------------------------
  5. WEAPON FIELDS - ALL WEAPON TYPES
@@ -679,6 +870,194 @@ MINION SPAWNER templates also accept:
   "minionPrefab": "..."      Which unit gets spawned.
   "projectileSpeed": 5       Launch speed of the minion.
   "minionFacesShootDirection": true
+
+----------------------------------------------------------------
+ 6b. LOBBED WEAPONS (usePhysics) - WHAT APPLIES
+----------------------------------------------------------------
+
+Set "usePhysics": true (inside "weapon") and the weapon throws a physics
+object that arcs, tumbles and bounces off the world.
+
+  "physicsProjectilePrefab": "..."   THE ammo for a lobbed weapon. A lob
+        weapon IGNORES projectilePrefab completely and uses this instead,
+        so this is the field to change to throw different debris.
+
+  "velocityInfluenceData": { "multiplyer": 1, "limit": 8,
+                             "influenceMode": "Projected",
+                             "allowSlowDown": false }
+        Feeds YOUR ship's movement into the shot - fly forward and the
+        lob goes further. Very characterful on grenades.
+          multiplyer     how much of your velocity is added (1 = all,
+                         0 = none). NOTE the game's spelling.
+          limit          caps the added speed.
+          influenceMode  "AnyDirection" adds your movement as-is, so
+                         strafing curves the throw; "Projected" keeps
+                         only the part along your aim, so it just goes
+                         further or shorter.
+          allowSlowDown  true lets backing away SUBTRACT speed; false
+                         only ever speeds the shot up.
+
+WHAT WORKS on a lobbed shot:
+  damage & burn, explosion, discharge, impactBehaviour, rangeData,
+  lifetimeData, homingData, pushForce, subEmitter, collidesWithSlime,
+  electricityData, velocityInfluenceData.
+
+WHAT DOES NOTHING on a lobbed shot (it never spawns the straight-flying
+projectile these belong to):
+  piercingData / pierceLimit, projectileBounceData (the physics object
+  already bounces), movementNoiseData, rotationData, projectileRadius,
+  and the custom "wave", "phasing" and "turret" options.
+
+----------------------------------------------------------------
+ 6c. MISSILES (homingData) - WHAT APPLIES
+----------------------------------------------------------------
+
+*** HOMING ONLY WORKS ON A PHYSICS SHOT. ***
+Set "usePhysics": true or homingData does NOTHING - the straight-flying
+projectile has no homing code at all. Every one of the game's 13 homing
+weapons is a physics shot, player and enemy alike.
+
+Player missiles:  White Dart, Purple Rocket, Caps Rocket, Electron Rocket
+Enemy missiles:   Weapon Enemy DroneMissile, Weapon OfficerPurple Missile,
+                  Weapon FloaterOfficerCaps Rocket, Weapon Purple Surge,
+                  Weapon Rocket Fire / JockRocket / Rookie / Soldier /
+                  TurretSeeker, Weapon Rocket CrossRedSmallElectron
+
+HOW A MISSILE FLIES: it is steered by TORQUE - it rotates toward the
+target and thrusts along its own nose. It never strafes sideways, so a
+low torque makes it swing wide and overshoot.
+
+  "homingData": {
+    "enabled": true,
+    "targetMode": "AutoSeekWhenShot",
+    "torque": 5, "maxAngularVelocity": 1000,
+    "acceleration": 70, "maxSpeed": 100,
+    "turbulenceTorque": 15, "turbulenceFrequency": 4,
+    "turbulenceDistanceCurve": [[0,0],[2.1,0],[10,1]]
+  }
+  (those are the stock rocket values)
+
+  targetMode
+     "FromLockOnly"        only chases what your AIM ASSIST has locked, so
+                           it needs aimAssistData enabled - with no lock it
+                           just flies straight
+     "AutoSeekWhenShot"    grabs the nearest target as it spawns
+     "AutoSeekWhenNeeded"  keeps looking mid-flight, so it can re-acquire
+  torque               TURN STRENGTH - the main missile knob.
+  maxAngularVelocity   spin limiter: no more turn force is added once it is
+                       already rotating this fast.
+  acceleration         forward thrust, applied while under maxSpeed.
+  maxSpeed             thrust cuts out at this speed.
+  turbulenceTorque     drunken wobble on top of the steering (0 = clean).
+  turbulenceFrequency  how fast that wobble changes.
+  turbulenceDistanceCurve   how the wobble scales with DISTANCE TO TARGET,
+                       written [[distance, amount], ...]. This is the
+                       secret of the rocket feel: the stock curve is
+                       [[0,0],[2.1,0],[10,1]] - full wobble at range 10,
+                       fading to ZERO within about 2 units, so rockets
+                       flail on approach then commit at the last moment.
+                       [[0,1]] = wobble everywhere, [[0,0]] = never.
+
+Because a missile is a physics shot, section 6b applies to it too: it can
+use explosion, burn, discharge, subEmitter, rangeData/lifetimeData and
+velocityInfluenceData, but NOT piercing, bounce, movementNoise, rotation,
+wave, phasing or turret.
+
+----------------------------------------------------------------
+ 6d. HITSCAN / LASER BEAMS - WHAT APPLIES
+----------------------------------------------------------------
+
+A hitscan weapon has NO projectile. It circle-casts a line every frame
+and damages whatever it touches, so most projectile options do nothing.
+
+  "range": 30            beam length. Caps Laser ~30, Crawler Laser 120.
+  "rayWidth": 0.5        beam thickness (it's a CIRCLE cast, so a fatter
+                         beam lands easier but snags on scenery sooner).
+  "damageRepeatDelay": 0.25   seconds before the SAME target can be hurt
+                         again while you hold the beam on it. This IS the
+                         laser's damage rate - lower melts faster.
+  "layerMask": "Entities"     what the beam can hit AND stop on. Use
+                         ["Entities","Ground"] to have terrain block it;
+                         Entities alone shoots through walls. (The
+                         "phasing" option simply strips Ground from this.)
+  "visual": "..."        the beam's look - swap in another laser's visual
+                         prefab by name.
+
+  TERRAFORMING BEAM (cellConvertData) - a hidden feature. The beam
+  CONVERTS TERRAIN where it lands. Only one weapon in the game uses it:
+  the Crawler Laser (radius 4, eats 10 different cell types).
+      "cellConvertData": {
+        "enabled": true,
+        "radius": 4,
+        "convertableCells": ["CellType_Mud", "CellType_Moss"],
+        "resultCellType": "CellType_Mud"
+      }
+    convertableCells   which terrain it may eat (one name, or a list).
+    resultCellType     what it turns into. Point it at a soft/empty cell
+                       to dig tunnels, or a solid one to BUILD walls.
+    Cell names include CellType_Mud, CellType_Moss, CellType_Blob,
+    CellType_Hazard, CellType Bark, CellType Gold, CellType Fog Steam.
+    NOTE cellConvertData exists on every weapon but ONLY hitscan runs it.
+
+WHAT WORKS on a beam:
+  damage, BURN (yes - a beam does apply burn), damageRepeatDelay, range,
+  rayWidth, layerMask, visual, pushForce, cellConvertData, warmupTime,
+  cost / fireRate, aimAssistData, plus Weapon Forge's electric options
+  (dischargeOnFire, lightningColor, lightningRange) and "phasing".
+
+WHAT DOES NOTHING on a beam (there is no projectile to carry them):
+  projectileSpeed / projectileCount / projectileRadius, spread and angle
+  options, rangeData, lifetimeData, impactBehaviour, homingData,
+  piercingData, projectileBounceData, movementNoiseData, rotationData,
+  subEmitter, and the custom wave / orbit / turret options.
+  The "explosion" and built-in "discharge" blocks also do nothing on their
+  own, because a beam never runs the impact code that triggers them - use
+  "dischargeOnFire": true for chain lightning instead.
+
+----------------------------------------------------------------
+ 6e. MINION SPAWNERS (pets / drones) - WHAT APPLIES
+----------------------------------------------------------------
+
+A minion spawner does not fire anything - it SPAWNS A UNIT that then
+lives and fights on its own AI. So the spawner's stats barely matter;
+nearly everything about the pet comes from the unit prefab you choose.
+
+  "minionPrefab": "Enemy_Fly Variant Drone Electric"
+        WHICH pet to spawn - the field that actually matters.
+  "projectileSpeed" / "projectileSpeedVariance"
+        how hard the pet is flung out as it appears; it flies under its
+        own power afterwards.
+  "minionFacesShootDirection": true
+        spawn it already facing the way you fired.
+  "velocityInfluenceData": { ... }
+        your ship's movement adds to the launch (see 6b for the fields).
+
+THE DRONES (what the in-game drone gadgets summon):
+  Enemy_Fly Variant Drone            - Caps drone (gun)
+  Enemy_Fly Variant Drone Electric   - Electron drone (electric)
+  Enemy_Fly Variant Drone Missile    - Purple drone (missiles)
+  Enemy_Fly Variant Drone Phantom    - Phantom / tech drone
+  Enemy_Fly Variant Drone Suicide    - kamikaze drone
+Other spawnables: Unit Mine FloaterOfficerCaps, Enemy_Cross Variant Pin,
+Unit Cross OneShot 4, Enemy_Child.
+
+WHAT WORKS: minionPrefab, projectileSpeed(+Variance),
+minionFacesShootDirection, velocityInfluenceData, and the trigger-side
+stats - fireRate, cost / resourceUsed, burstSize / burstDelay,
+projectileCount (spawn several at once), spread + angle, warmupTime.
+
+WHAT DOES NOTHING: damage, burn, explosion, discharge, pushForce, and all
+projectile options (rangeData, lifetimeData, impactBehaviour, homingData,
+piercingData, bounce, movementNoise, rotation, subEmitter) - no projectile
+is ever created to carry them. The pet's own damage, health and weapon
+live on its unit prefab and are NOT editable from JSON.
+
+THE DRONE GADGETS ARE A DIFFERENT TYPE: the drones you pick up in-game
+(Module Active Drone Caps / Electron / Purple / Phantom / Suicide) are
+SpawnMinionModuleData - they hold a UNIT, not a weapon. Weapon Forge
+cannot use them as a template; the build is skipped with a "no weapon"
+error. To build your own drone launcher, use a minion-spawner weapon
+template above and point minionPrefab at the drone you want.
 
 ----------------------------------------------------------------
  7. MIXING AND MATCHING

@@ -120,6 +120,8 @@
           <option value="">-- start blank --</option>
           <option value="WhiteTesla">White Tesla (chain lightning)</option>
           <option value="OrbitRing">Orbit Ring (orbiting projectiles)</option>
+          <option value="TurretDisc">Sentry Disc (hovering turret / mine)</option>
+          <option value="TripleRing">Triple Ring (3 counter-rotating rings)</option>
           <option value="WaveBeam">Wave Beam (S-pattern projectiles)</option>
           <option value="SpiralVortex">Spiral Vortex (spiral out, fly off)</option>
           <option value="CyanPopper">Cyan Popper (basic example)</option>
@@ -168,8 +170,12 @@
             <option>Module Weapon Purple ClusterCube</option>
             <option>Module Weapon Tech Dandelion</option>
           </optgroup>
-          <optgroup label="Minion spawner (pets)">
-            <option>Module Weapon Fly</option>
+          <optgroup label="Minion spawner (pets - raw enemy assets)">
+            <option>Weapon Minion CrossSmallCaps</option>
+            <option>Weapon Minion Cross Red</option>
+            <option>Weapon Minion CrossRedBomber</option>
+            <option>Weapon_Minion_CrossQueen</option>
+            <option>Weapon FloaterOfficerCaps Mines</option>
           </optgroup>
           <optgroup label="Gadgets (use with a gadget slot)">
             <option>Module Active Purple AirMines</option>
@@ -242,8 +248,13 @@
           <option value="starter">starter (new-game pick)</option>
           <option value="starterAndLoot">starter + loot drops</option>
           <option value="loot">loot only (drops from crates)</option>
+          <option value="none">none (never offered - helper weapon)</option>
         </select>
-        <em>where the weapon can show up</em></label>
+        <em>where the weapon can show up. Pick <b>none</b> for a weapon that
+            only exists to be referenced by something else (a subEmitter
+            stage, turret ammo) - it is still built and findable by name, it
+            just never appears as a pick or a drop. (The shop toggle below is
+            separate, and defaults to off.)</em></label>
       <label class="field" id="f-lootweight-field">
         <span>loot weight (optional)</span>
         <input type="number" step="any" data-path="lootWeight"
@@ -269,14 +280,16 @@
     </div>
     <label class="field" style="margin-top:10px">
       <span>description</span>
-      <textarea data-path="description" placeholder="Menu card description..."></textarea></label>
+      <textarea data-path="description" placeholder="Menu card description..."></textarea>
+      <em>blurb shown on the loadout pick screen and the module card</em></label>
   </section>
 
   <section>
     <h2>Core Stats (all weapon types)</h2>
     <div class="grid">
       <label class="field"><span>damage amount</span>
-        <input type="number" step="any" data-path="weapon.damage.amount"></label>
+        <input type="number" step="any" data-path="weapon.damage.amount">
+          <em>Damage each shot deals on a direct hit.</em></label>
       <label class="field"><span>damage type</span>
         <select data-path="weapon.damage.damageType">
           <option value="">keep template</option>
@@ -284,7 +297,8 @@
           <option>Resource Purple</option><option>Resource Electron</option>
             <option>Resource Health</option>
             <option>Resource Fuel</option><option>Resource Tech</option>
-        </select></label>
+        </select>
+          <em>Which resource/element the damage counts as (also tints some effects).</em></label>
       <label class="field"><span>fireRate</span>
         <input type="number" step="any" data-path="weapon.fireRate">
         <em>shots per second</em></label>
@@ -300,11 +314,14 @@
         <em>fire this weapon applies. Set both to 0 to stop igniting
         (e.g. the White Tesla).</em></label>
       <label class="field"><span>burn max</span>
-        <input type="number" step="any" data-path="weapon.burn.Max"></label>
+        <input type="number" step="any" data-path="weapon.burn.Max">
+          <em>Most burn applied per hit (0 = none). Burn then ticks damage over time.</em></label>
       <label class="field"><span>burstSize</span>
-        <input type="number" step="1" data-path="weapon.burstSize"></label>
+        <input type="number" step="1" data-path="weapon.burstSize">
+          <em>Shots fired per trigger pull. 1 = a single shot.</em></label>
       <label class="field"><span>burstDelay</span>
-        <input type="number" step="any" data-path="weapon.burstDelay"></label>
+        <input type="number" step="any" data-path="weapon.burstDelay">
+          <em>Seconds between the shots of one burst.</em></label>
       <label class="field"><span>projectileCount</span>
         <input type="number" step="1" data-path="weapon.projectileCount">
         <em>projectiles per shot</em></label>
@@ -315,7 +332,8 @@
         <input type="number" step="any" data-path="weapon.angleVariance">
         <em>random inaccuracy</em></label>
       <label class="field"><span>angleOffset</span>
-        <input type="number" step="any" data-path="weapon.angleOffset"></label>
+        <input type="number" step="any" data-path="weapon.angleOffset">
+          <em>Rotates the whole spray, in degrees. 0 = straight ahead.</em></label>
       <label class="field"><span>knockbackForce</span>
         <input type="number" step="any" data-path="weapon.knockbackForce">
         <em>recoil on your ship</em></label>
@@ -336,7 +354,8 @@
         <input type="number" step="any" data-path="weapon.cost">
         <em>ammo per shot</em></label>
       <label class="field"><span>barrelLength</span>
-        <input type="number" step="any" data-path="weapon.barrelLength"></label>
+        <input type="number" step="any" data-path="weapon.barrelLength">
+          <em>How far in front of the ship shots spawn, in world units.</em></label>
     </div>
 
     <details class="block">
@@ -344,9 +363,11 @@
         <span class="tag">explode on hit/expiry (pair with impactBehaviour / lifetimeData)</span></summary>
       <div class="fields grid">
         <label class="field"><span>radius</span>
-          <input type="number" step="any" data-path="weapon.explosion.radius"></label>
+          <input type="number" step="any" data-path="weapon.explosion.radius">
+          <em>Blast size in world units.</em></label>
         <label class="field"><span>damage amount</span>
-          <input type="number" step="any" data-path="weapon.explosion.damageAmount"></label>
+          <input type="number" step="any" data-path="weapon.explosion.damageAmount">
+          <em>Damage the blast deals (on top of the direct hit).</em></label>
         <label class="field"><span>damage type</span>
           <select data-path="weapon.explosion.damageType">
             <option value="">keep template</option>
@@ -354,7 +375,8 @@
             <option>Resource Purple</option><option>Resource Electron</option>
             <option>Resource Health</option>
             <option>Resource Fuel</option><option>Resource Tech</option>
-          </select></label>
+          </select>
+          <em>Resource/element the blast damage counts as.</em></label>
       </div>
     </details>
 
@@ -363,7 +385,8 @@
         <span class="tag">chain lightning burst (triggered by lifetimeData / impactBehaviour discharge)</span></summary>
       <div class="fields grid">
         <label class="field"><span>chainLength</span>
-          <input type="number" step="1" data-path="weapon.discharge.chainLength"></label>
+          <input type="number" step="1" data-path="weapon.discharge.chainLength">
+          <em>How many enemies the lightning hops through.</em></label>
         <label class="field"><span>subSystem</span>
           <select data-path="weapon.discharge.subSystem">
             <option value="">keep template</option>
@@ -371,7 +394,8 @@
           </select>
           <em>Player = white/blue beams</em></label>
         <label class="field"><span>damage amount</span>
-          <input type="number" step="any" data-path="weapon.discharge.damage.amount"></label>
+          <input type="number" step="any" data-path="weapon.discharge.damage.amount">
+          <em>Damage dealt by each lightning hop.</em></label>
         <label class="field"><span>damage type</span>
           <select data-path="weapon.discharge.damage.damageType">
             <option value="">keep template</option>
@@ -379,7 +403,8 @@
             <option>Resource Purple</option><option>Resource Electron</option>
             <option>Resource Health</option>
             <option>Resource Fuel</option><option>Resource Tech</option>
-          </select></label>
+          </select>
+          <em>Resource/element the lightning damage counts as.</em></label>
       </div>
     </details>
 
@@ -459,11 +484,47 @@
             <option value="">cw</option>
             <option value="cw">clockwise</option>
             <option value="ccw">counter-clockwise</option>
-          </select></label>
+          </select>
+          <em>Which way the ring spins around you.</em></label>
         <label class="field"><span>orbitRadius</span>
           <input type="number" step="any" data-path="orbitRadius"
                  placeholder="3">
           <em>circle size (how far the orbs sit from you)</em></label>
+        <label class="field"><span>orbitRings</span>
+          <input type="number" step="1" data-path="orbitRings" placeholder="1">
+          <em>how many concentric rings. 1 = the classic single ring; 2-4
+              gives you nested rings around the ship.</em></label>
+        <label class="field"><span>orbitRingMode</span>
+          <select data-path="orbitRingMode">
+            <option value="">split (share projectileCount across rings)</option>
+            <option value="split">split (share projectileCount across rings)</option>
+            <option value="full">full (every ring gets the full count)</option>
+          </select>
+          <em>split re-arranges the orbs you already have; full multiplies
+              them (projectileCount x rings orbs in total).</em></label>
+        <label class="field"><span>orbitRingSpacing</span>
+          <input type="number" step="any" data-path="orbitRingSpacing"
+                 placeholder="1.5">
+          <em>gap between one ring and the next, in world units. orbitRadius
+              is the innermost ring.</em></label>
+        <label class="field"><span>orbitRingStagger</span>
+          <input type="text" data-path="orbitRingStagger" placeholder="auto">
+          <em>where orbs sit within each ring: <code>auto</code> offsets every
+              ring by half a slot so they interleave, <code>aligned</code>
+              lines them up as spokes, or a number = degrees of offset per
+              ring.</em></label>
+        <label class="field"><span>orbitRingAlternate</span>
+          <select data-path="orbitRingAlternate" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>flip the spin direction on every other ring - counter-rotating
+              rings.</em></label>
+        <label class="field"><span>orbitRingSpeedStep</span>
+          <input type="number" step="any" data-path="orbitRingSpeedStep"
+                 placeholder="1">
+          <em>speed multiplier applied per ring outward. 1 = all rings spin
+              together; 0.5 = each ring out is half as fast; 1.5 = faster.</em></label>
         <label class="field"><span>orbitSpeed</span>
           <input type="number" step="any" data-path="orbitSpeed"
                  placeholder="120">
@@ -475,6 +536,15 @@
             <option value="false">false</option>
           </select>
           <em>damage enemies the orbs touch</em></label>
+        <label class="field"><span>orbitWeaponEffects</span>
+          <select data-path="orbitWeaponEffects" data-type="bool">
+            <option value="">true</option>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+          <em>orb hits deliver the weapon's FULL payload - burn, enemy aggro,
+              kill credit, plus its explosion and discharge/lightning. Turn
+              off for plain contact damage only.</em></label>
         <label class="field"><span>orbitDamageRepeatDelay</span>
           <input type="number" step="any" data-path="orbitDamageRepeatDelay"
                  placeholder="0.3">
@@ -484,7 +554,9 @@
             <option value="">false</option>
             <option value="true">true</option>
           </select>
-          <em>orbs destroy enemy shots they touch</em></label>
+          <em>orbs shoot down enemy bullets they touch, turning the ring into
+              a shield. Detection radius is orbitHitRadius - widen it if fast
+              shots slip between orbs.</em></label>
         <label class="field"><span>orbitPushForce</span>
           <input type="number" step="any" data-path="orbitPushForce"
                  placeholder="0">
@@ -508,7 +580,8 @@
             <option value="">true (pure orbit, no forward shots)</option>
             <option value="true">true</option>
             <option value="false">false (also fire normally)</option>
-          </select></label>
+          </select>
+          <em>Leave true for a pure orbit; false also fires the weapon normally.</em></label>
         <label class="field"><span>orbitHitRadius</span>
           <input type="number" step="any" data-path="orbitHitRadius"
                  placeholder="0.6">
@@ -581,14 +654,17 @@
           <select data-path="weapon.aimAssistData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
             <option value="">keep template</option>
-          </select></label>
+          </select>
+          <em>Softly steer shots toward a target you are roughly pointing at.</em></label>
         <label class="field"><span>maxAngle</span>
-          <input type="number" step="any" data-path="weapon.aimAssistData.maxAngle"></label>
+          <input type="number" step="any" data-path="weapon.aimAssistData.maxAngle">
+          <em>How far off-aim a target can be and still be snapped to, in degrees.</em></label>
         <label class="field"><span>isPredictive</span>
           <select data-path="weapon.aimAssistData.isPredictive" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Lead moving targets (aim where they are going) instead of straight at them.</em></label>
       </div>
     </details>
 
@@ -651,9 +727,11 @@
     <p class="hint">Shown because the selected template fires projectiles.</p>
     <div class="grid">
       <label class="field"><span>projectileSpeed</span>
-        <input type="number" step="any" data-path="weapon.projectileSpeed"></label>
+        <input type="number" step="any" data-path="weapon.projectileSpeed">
+          <em>How fast the shot travels, in world units per second.</em></label>
       <label class="field"><span>projectileSpeedVariance</span>
-        <input type="number" step="any" data-path="weapon.projectileSpeedVariance"></label>
+        <input type="number" step="any" data-path="weapon.projectileSpeedVariance">
+          <em>Random +/- on each shot's speed, so a volley spreads out as it flies.</em></label>
       <label class="field"><span>projectileRadius</span>
         <input type="number" step="any" data-path="weapon.projectileRadius">
         <em>hit size</em></label>
@@ -661,12 +739,14 @@
         <select data-path="weapon.usePhysics" data-type="bool">
           <option value="">keep template</option>
           <option value="true">true</option><option value="false">false</option>
-        </select></label>
+        </select>
+          <em>Lob shots that arc and tumble (a different projectile type) instead of flying straight.</em></label>
       <label class="field"><span>collidesWithSlime</span>
         <select data-path="weapon.collidesWithSlime" data-type="bool">
           <option value="">keep template</option>
           <option value="true">true</option><option value="false">false</option>
-        </select></label>
+        </select>
+          <em>Lobbed/physics shots only: also collide with destructible level chunks.</em></label>
       <label class="field"><span>projectilePrefab (pick one)</span>
         <select id="f-proj-prefab-preset">
           <option value="">-- keep template's projectile --</option>
@@ -725,26 +805,40 @@
         <label class="field"><span>enabled</span>
           <select data-path="weapon.rangeData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Turn on a maximum travel distance. Needed for range, slowDown and fireSub.</em></label>
         <label class="field"><span>range</span>
-          <input type="number" step="any" data-path="weapon.rangeData.range"></label>
+          <input type="number" step="any" data-path="weapon.rangeData.range">
+          <em>How far the shot travels before its range runs out, in world units.</em></label>
         <label class="field"><span>variance</span>
-          <input type="number" step="any" data-path="weapon.rangeData.variance"></label>
+          <input type="number" step="any" data-path="weapon.rangeData.variance">
+          <em>Random +/- on that distance so shots don't all stop in a line.</em></label>
         <label class="field"><span>slowDown</span>
           <select data-path="weapon.rangeData.slowDown" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Ease to a dead stop over the distance instead of flying flat out.</em></label>
         <label class="field"><span>destroyWhenReached</span>
           <select data-path="weapon.rangeData.destroyWhenReached" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Die at max range. REQUIRED for the range-end explosion / fireSub to happen.</em></label>
         <label class="field"><span>spawnExplosion</span>
           <select data-path="weapon.rangeData.spawnExplosion" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Explode when it reaches max range (needs destroyWhenReached).</em></label>
+        <label class="field"><span>fireSub</span>
+          <select data-path="weapon.rangeData.fireSub" data-type="bool">
+            <option value="">keep template</option>
+            <option value="true">true</option><option value="false">false</option>
+          </select>
+          <em>fire the subEmitter weapon when the shot reaches max range
+              (needs enabled + destroyWhenReached, and a subEmitter set
+              below)</em></label>
       </div>
     </details>
 
@@ -755,54 +849,100 @@
         <label class="field"><span>enabled</span>
           <select data-path="weapon.lifetimeData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Turn on a lifespan timer - the shot dies after 'time' seconds.</em></label>
         <label class="field"><span>time</span>
           <input type="number" step="any" data-path="weapon.lifetimeData.time">
           <em>seconds</em></label>
         <label class="field"><span>timeVariance</span>
-          <input type="number" step="any" data-path="weapon.lifetimeData.timeVariance"></label>
+          <input type="number" step="any" data-path="weapon.lifetimeData.timeVariance">
+          <em>Random +/- seconds on that lifespan.</em></label>
         <label class="field"><span>spawnExplosion</span>
           <select data-path="weapon.lifetimeData.spawnExplosion" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Explode when the timer runs out.</em></label>
         <label class="field"><span>discharge</span>
           <select data-path="weapon.lifetimeData.discharge" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
           </select>
           <em>chain lightning on expiry</em></label>
+        <label class="field"><span>fireSub</span>
+          <select data-path="weapon.lifetimeData.fireSub" data-type="bool">
+            <option value="">keep template</option>
+            <option value="true">true</option><option value="false">false</option>
+          </select>
+          <em>fire the subEmitter weapon when the shot's lifetime runs out
+              (needs enabled, and a subEmitter set below)</em></label>
       </div>
     </details>
 
     <details class="block">
       <summary><input type="checkbox" class="gate">homingData
-        <span class="tag">seeking missiles</span></summary>
+        <span class="tag">MISSILES - needs usePhysics</span></summary>
       <div class="fields grid">
+        <label class="field"><span>READ THIS FIRST</span>
+          <em><b>Homing only works on a physics shot.</b> Set
+              <b>usePhysics: true</b> (Projectile Weapon above) or none of
+              this does anything - the straight-flying projectile has no
+              homing code at all. Every one of the game's 13 homing weapons
+              is a physics shot. A missile is steered by TORQUE: it turns
+              and thrusts forward, it never strafes sideways.</em></label>
         <label class="field"><span>enabled</span>
           <select data-path="weapon.homingData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>make the shot steer toward a target after it is fired</em></label>
         <label class="field"><span>targetMode</span>
           <select data-path="weapon.homingData.targetMode">
             <option value="">keep template</option>
             <option>FromLockOnly</option>
             <option>AutoSeekWhenShot</option>
             <option>AutoSeekWhenNeeded</option>
-          </select></label>
-        <label class="field"><span>acceleration</span>
-          <input type="number" step="any" data-path="weapon.homingData.acceleration"></label>
+          </select>
+          <em>how it gets a target. <b>FromLockOnly</b> only chases what your
+              aim-assist has locked (so it needs aimAssistData on - with no
+              lock it flies straight). <b>AutoSeekWhenShot</b> grabs the
+              nearest target the moment it spawns. <b>AutoSeekWhenNeeded</b>
+              keeps looking while in flight, so it can re-acquire.</em></label>
         <label class="field"><span>torque</span>
           <input type="number" step="any" data-path="weapon.homingData.torque">
-          <em>turn strength</em></label>
-        <label class="field"><span>maxSpeed</span>
-          <input type="number" step="any" data-path="weapon.homingData.maxSpeed"></label>
+          <em>TURN STRENGTH - the main missile knob. How hard it rotates
+              toward the target each tick. Low = wide lazy arcs that
+              overshoot; high = tight tracking. Stock rockets use 5.</em></label>
         <label class="field"><span>maxAngularVelocity</span>
-          <input type="number" step="any" data-path="weapon.homingData.maxAngularVelocity"></label>
+          <input type="number" step="any" data-path="weapon.homingData.maxAngularVelocity">
+          <em>spin limiter: once it's already rotating this fast, no more
+              turn force is added. Stops a missile spinning up forever.
+              Stock rockets use 1000 (i.e. barely limited).</em></label>
+        <label class="field"><span>acceleration</span>
+          <input type="number" step="any" data-path="weapon.homingData.acceleration">
+          <em>forward thrust, applied along the missile's nose while it is
+              slower than maxSpeed. Stock rockets use 70.</em></label>
+        <label class="field"><span>maxSpeed</span>
+          <input type="number" step="any" data-path="weapon.homingData.maxSpeed">
+          <em>thrust stops once it reaches this speed. Stock rockets use
+              100.</em></label>
         <label class="field"><span>turbulenceTorque</span>
-          <input type="number" step="any" data-path="weapon.homingData.turbulenceTorque"></label>
+          <input type="number" step="any" data-path="weapon.homingData.turbulenceTorque">
+          <em>drunken-wobble strength added on top of the steering (0 = a
+              perfectly clean tracker). Stock rockets use 15.</em></label>
         <label class="field"><span>turbulenceFrequency</span>
-          <input type="number" step="any" data-path="weapon.homingData.turbulenceFrequency"></label>
+          <input type="number" step="any" data-path="weapon.homingData.turbulenceFrequency">
+          <em>how fast that wobble changes direction. Stock rockets use
+              4.</em></label>
+        <label class="field"><span>turbulenceDistanceCurve</span>
+          <input type="text" data-path="weapon.homingData.turbulenceDistanceCurve"
+                 placeholder="[[0,0],[2.1,0],[10,1]]">
+          <em>how the wobble scales with DISTANCE TO TARGET, as
+              <code>[[distance,amount], ...]</code>. This is what gives
+              rockets their feel: the stock curve is
+              <code>[[0,0],[2.1,0],[10,1]]</code> - full wobble out at range
+              10, dropping to ZERO within ~2 units, so they flail on the way
+              in and then commit. Flat <code>[[0,1]]</code> = wobble
+              everywhere; <code>[[0,0]]</code> = never.</em></label>
       </div>
     </details>
 
@@ -813,11 +953,14 @@
         <label class="field"><span>enabled</span>
           <select data-path="weapon.piercingData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Pass THROUGH enemies instead of dying on the first one. Walls still stop it.</em></label>
         <label class="field"><span>damageRepeatDelay</span>
-          <input type="number" step="any" data-path="weapon.piercingData.damageRepeatDelay"></label>
+          <input type="number" step="any" data-path="weapon.piercingData.damageRepeatDelay">
+          <em>Seconds before the SAME enemy can be damaged again.</em></label>
         <label class="field"><span>knockBackRepeatDelay</span>
-          <input type="number" step="any" data-path="weapon.piercingData.knockBackRepeatDelay"></label>
+          <input type="number" step="any" data-path="weapon.piercingData.knockBackRepeatDelay">
+          <em>Seconds before the same enemy can be shoved again.</em></label>
         <label class="field"><span>pierceLimit</span>
           <input type="number" step="1" data-path="pierceLimit"
                  placeholder="e.g. 2">
@@ -900,9 +1043,11 @@
           </select>
           <em>random Perlin wander (not a clean S - use "wave" for that)</em></label>
         <label class="field"><span>angle</span>
-          <input type="number" step="any" data-path="weapon.movementNoiseData.angle"></label>
+          <input type="number" step="any" data-path="weapon.movementNoiseData.angle">
+          <em>How far the flight path wanders off course, in degrees.</em></label>
         <label class="field"><span>frequency</span>
-          <input type="number" step="any" data-path="weapon.movementNoiseData.frequency"></label>
+          <input type="number" step="any" data-path="weapon.movementNoiseData.frequency">
+          <em>How quickly it wanders.</em></label>
       </div>
     </details>
 
@@ -913,7 +1058,15 @@
         <label class="field"><span>enabled</span>
           <select data-path="weapon.projectileBounceData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Ricochet instead of dying - you must also set layerMask below.</em></label>
+        <label class="field"><span>layerMask</span>
+          <input type="text" data-path="weapon.projectileBounceData.layerMask"
+                 placeholder="Ground">
+          <em>REQUIRED - what it bounces off. Most templates ship an EMPTY
+              mask, so "enabled" on its own does nothing. Usually
+              <code>Ground</code>. (Hand-edit the .json to
+              <code>["Ground","Entities"]</code> for more than one.)</em></label>
       </div>
     </details>
 
@@ -924,12 +1077,14 @@
         <label class="field"><span>enabled</span>
           <select data-path="weapon.impactBehaviour.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Let impacts do something (explode / fireSub / destroy). OFF = the shot survives hits.</em></label>
         <label class="field"><span>spawnExplosion</span>
           <select data-path="weapon.impactBehaviour.spawnExplosion" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Explode on impact.</em></label>
         <label class="field"><span>discharge</span>
           <select data-path="weapon.impactBehaviour.discharge" data-type="bool">
             <option value="">keep template</option>
@@ -938,7 +1093,16 @@
           <em>chain lightning on hit</em></label>
         <label class="field"><span>safetyDistance</span>
           <input type="number" step="any" data-path="weapon.impactBehaviour.safetyDistance">
-          <em>min travel before arming</em></label>
+          <em>min travel before arming - an impact CLOSER than this does
+              nothing (no explosion, no subEmitter), the shot just
+              bounces</em></label>
+        <label class="field"><span>fireSub</span>
+          <select data-path="weapon.impactBehaviour.fireSub" data-type="bool">
+            <option value="">keep template</option>
+            <option value="true">true</option><option value="false">false</option>
+          </select>
+          <em>fire the subEmitter weapon on impact - works on enemies AND
+              terrain (needs enabled, and a subEmitter set below)</em></label>
       </div>
     </details>
 
@@ -949,44 +1113,56 @@
         <label class="field"><span>enabled</span>
           <select data-path="weapon.electricityData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Plug the shot into the electricity network.</em></label>
         <label class="field"><span>isSource</span>
           <select data-path="weapon.electricityData.isSource" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Emit lightning itself. Off = it only passes current along.</em></label>
         <label class="field"><span>chainLength</span>
-          <input type="number" step="1" data-path="weapon.electricityData.chainLength"></label>
+          <input type="number" step="1" data-path="weapon.electricityData.chainLength">
+          <em>How many hops the current travels from here.</em></label>
         <label class="field"><span>conductivity</span>
-          <input type="number" step="1" data-path="weapon.electricityData.conductivity"></label>
+          <input type="number" step="1" data-path="weapon.electricityData.conductivity">
+          <em>How strongly it links to nearby conductors - higher links more readily.</em></label>
         <label class="field"><span>minConductivity</span>
-          <input type="number" step="1" data-path="weapon.electricityData.minConductivity"></label>
+          <input type="number" step="1" data-path="weapon.electricityData.minConductivity">
+          <em>Minimum link strength before a connection is allowed to form.</em></label>
         <label class="field"><span>emittedSystem</span>
           <select data-path="weapon.electricityData.emittedSystem">
             <option value="">keep template</option>
             <option>Player</option><option>Enemy</option>
-          </select></label>
+          </select>
+          <em>Whose network it emits into - Player or Enemy.</em></label>
         <label class="field"><span>conductedSystem</span>
           <select data-path="weapon.electricityData.conductedSystem">
             <option value="">keep template</option>
             <option>Player</option><option>Enemy</option>
-          </select></label>
+          </select>
+          <em>Whose network it will carry current for.</em></label>
         <label class="field"><span>showPreviewBeam</span>
           <select data-path="weapon.electricityData.showPreviewBeam" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Draw the faint beam that shows where current would jump.</em></label>
         <label class="field"><span>showBeamParticles</span>
           <select data-path="weapon.electricityData.showBeamParticles" data-type="bool">
             <option value="">keep template</option>
             <option value="true">true</option><option value="false">false</option>
-          </select></label>
+          </select>
+          <em>Show sparks travelling along the beam.</em></label>
         <label class="field"><span>damageRadius</span>
-          <input type="number" step="any" data-path="weapon.electricityData.damageRadius"></label>
+          <input type="number" step="any" data-path="weapon.electricityData.damageRadius">
+          <em>How close an enemy must be to get zapped, in world units.</em></label>
         <label class="field"><span>damageRepeatDelay</span>
-          <input type="number" step="any" data-path="weapon.electricityData.damageRepeatDelay"></label>
+          <input type="number" step="any" data-path="weapon.electricityData.damageRepeatDelay">
+          <em>Seconds between zaps on the same target.</em></label>
         <label class="field"><span>damage amount</span>
-          <input type="number" step="any" data-path="weapon.electricityData.damage.amount"></label>
+          <input type="number" step="any" data-path="weapon.electricityData.damage.amount">
+          <em>Damage dealt by each zap.</em></label>
         <label class="field"><span>damage type</span>
           <select data-path="weapon.electricityData.damage.damageType">
             <option value="">keep template</option>
@@ -994,52 +1170,438 @@
             <option>Resource Purple</option><option>Resource Electron</option>
             <option>Resource Health</option>
             <option>Resource Fuel</option><option>Resource Tech</option>
-          </select></label>
+          </select>
+          <em>Resource/element the zap damage counts as.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">lobbed shot (usePhysics)
+        <span class="tag">debris / flak / grenades</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>about lobbed weapons</span>
+          <em>A "lob" weapon is just a projectile weapon with
+              <b>usePhysics</b> on (set it in Projectile Weapon above).
+              It throws a physics object that arcs, tumbles and bounces off
+              the world instead of flying straight. Stock examples: White
+              Derbis, Purple Flack, Caps Loon, Purple Can, Purple
+              ClusterCube, Tech Dandelion.</em></label>
+        <label class="field"><span>physicsProjectilePrefab</span>
+          <input type="text" data-path="weapon.physicsProjectilePrefab"
+                 placeholder="asset name">
+          <em>THE ammo for a lobbed weapon. A lob weapon ignores
+              projectilePrefab entirely - it uses this one - so this is the
+              field to change if you want different debris.</em></label>
+        <label class="field"><span>WORKS on a lobbed shot</span>
+          <em>damage &amp; burn, explosion, discharge, impactBehaviour,
+              rangeData, lifetimeData, homingData, pushForce, subEmitter,
+              collidesWithSlime, electricityData, and the velocity influence
+              below.</em></label>
+        <label class="field"><span>does NOT work on a lobbed shot</span>
+          <em>piercingData / pierceLimit, projectileBounceData (physics does
+              its own bouncing), movementNoiseData, rotationData,
+              projectileRadius - and the custom wave, phasing and turret
+              options. Those are all handled by the straight-flying
+              projectile, which a lob weapon never spawns.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">velocityInfluenceData
+        <span class="tag">your speed adds to the shot</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>multiplyer</span>
+          <input type="number" step="any"
+                 data-path="weapon.velocityInfluenceData.multiplyer">
+          <em>how much of YOUR ship's current velocity is added to the shot.
+              1 = full inheritance, 0 = none. Great on lobbed weapons: throw
+              further when flying forward. (Yes, the game spells it
+              "multiplyer".)</em></label>
+        <label class="field"><span>limit</span>
+          <input type="number" step="any"
+                 data-path="weapon.velocityInfluenceData.limit">
+          <em>caps how much speed can be added, so sprinting doesn't turn a
+              lob into a railgun.</em></label>
+        <label class="field"><span>influenceMode</span>
+          <select data-path="weapon.velocityInfluenceData.influenceMode">
+            <option value="">keep template</option>
+            <option value="AnyDirection">AnyDirection</option>
+            <option value="Projected">Projected</option>
+          </select>
+          <em>AnyDirection adds your movement as-is (strafing curves the
+              shot); Projected keeps only the part along the aim line, so it
+              just goes further or shorter.</em></label>
+        <label class="field"><span>allowSlowDown</span>
+          <select data-path="weapon.velocityInfluenceData.allowSlowDown" data-type="bool">
+            <option value="">keep template</option>
+            <option value="true">true</option><option value="false">false</option>
+          </select>
+          <em>true lets backing away SUBTRACT speed from the shot; false only
+              ever speeds it up.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">rotationData
+        <span class="tag">how the sprite faces</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>enabled</span>
+          <select data-path="weapon.rotationData.enabled" data-type="bool">
+            <option value="true" selected>true</option><option value="false">false</option>
+          </select>
+          <em>turn the shot's sprite to match its heading. Straight-flying
+              projectiles only - lobbed shots tumble on their own.</em></label>
+        <label class="field"><span>orientationAlignment</span>
+          <select data-path="weapon.rotationData.orientationAlignment">
+            <option value="">keep template</option>
+            <option value="None">None</option>
+            <option value="WhenShot">WhenShot</option>
+            <option value="Continuous">Continuous</option>
+          </select>
+          <em>None = never turn; WhenShot = aim it once at launch;
+              Continuous = keep it pointed along its path (needed if the
+              shot curves, e.g. wave or homing).</em></label>
       </div>
     </details>
   </section>
 
   <section class="type-section" data-type="hitscan" id="sec-hitscan">
-    <h2>Hitscan Weapon</h2>
+    <h2>Hitscan Weapon (laser / beam)</h2>
     <div class="grid">
       <label class="field"><span>range</span>
         <input type="number" step="any" data-path="weapon.range">
-        <em>beam length</em></label>
+        <em>beam length in world units. It hits INSTANTLY - there is no
+            projectile, so travel time and projectile options don't apply.
+            (Caps Laser is 30-ish; Crawler Laser is 120.)</em></label>
       <label class="field"><span>rayWidth</span>
         <input type="number" step="any" data-path="weapon.rayWidth">
-        <em>beam thickness</em></label>
+        <em>beam thickness. It is a circle-cast, so a fatter beam is easier
+            to land but also snags on scenery sooner. Crawler Laser uses
+            0.5.</em></label>
       <label class="field"><span>damageRepeatDelay</span>
         <input type="number" step="any" data-path="weapon.damageRepeatDelay">
-        <em>seconds between ticks</em></label>
+        <em>seconds before the SAME target can be hurt again while you hold
+            the beam on it - this IS the laser's rate of damage. Lower =
+            melts faster. Default 0.25.</em></label>
+      <label class="field"><span>layerMask</span>
+        <input type="text" data-path="weapon.layerMask" placeholder="Entities">
+        <em>what the beam can HIT and stop on. Usually
+            <code>Entities</code> for enemies-only (it then shoots straight
+            through walls), or add <code>Ground</code> so terrain blocks it.
+            Hand-edit the .json to <code>["Entities","Ground"]</code> for
+            several. (The phasing option just strips Ground from
+            this.)</em></label>
+      <label class="field"><span>visual</span>
+        <input type="text" data-path="weapon.visual" placeholder="asset name">
+        <em>the beam's look - swap in another laser's visual prefab by
+            name.</em></label>
     </div>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">cellConvertData
+        <span class="tag">terraforming beam</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>what this is</span>
+          <em>A hidden gem: the beam CONVERTS TERRAIN where it lands, turning
+              one kind of cell into another. Only ONE weapon in the whole
+              game uses it - the Crawler Laser, which melts 10 different
+              cell types with a radius of 4. Note this lives on every weapon
+              but ONLY hitscan actually runs it.</em></label>
+        <label class="field"><span>enabled</span>
+          <select data-path="weapon.cellConvertData.enabled" data-type="bool">
+            <option value="true" selected>true</option><option value="false">false</option>
+          </select>
+          <em>turn terrain conversion on</em></label>
+        <label class="field"><span>radius</span>
+          <input type="number" step="any" data-path="weapon.cellConvertData.radius"
+                 placeholder="4">
+          <em>how big a patch is converted around the hit point</em></label>
+        <label class="field"><span>convertableCells</span>
+          <input type="text" data-path="weapon.cellConvertData.convertableCells"
+                 placeholder="CellType_Mud">
+          <em>which terrain it is allowed to eat, by CellType asset name.
+              Hand-edit the .json to a list for several:
+              <code>["CellType_Mud","CellType_Moss"]</code>. Names include
+              CellType_Mud, CellType_Moss, CellType_Blob, CellType_Hazard,
+              CellType Bark, CellType Gold, CellType Fog Steam.</em></label>
+        <label class="field"><span>resultCellType</span>
+          <input type="text" data-path="weapon.cellConvertData.resultCellType"
+                 placeholder="CellType_Mud">
+          <em>what it becomes. Point this at an empty/soft cell type to dig
+              tunnels, or at a solid one to BUILD walls.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">what applies to a beam
+        <span class="tag">read me</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>WORKS on a hitscan beam</span>
+          <em>damage, <b>burn</b> (yes - a beam does apply burn),
+              damageRepeatDelay, range, rayWidth, layerMask, pushForce,
+              cellConvertData, warmupTime, cost/fireRate, aimAssistData, and
+              Weapon Forge's own electric options (dischargeOnFire,
+              lightningColor...) and the phasing flag.</em></label>
+        <label class="field"><span>does NOTHING on a beam</span>
+          <em>everything projectile-shaped: projectileSpeed/Count/Radius,
+              spread &amp; angle, rangeData, lifetimeData, impactBehaviour,
+              homingData, piercingData, bounce, movementNoise, rotationData,
+              subEmitter, and the custom wave / orbit / turret options.
+              <b>explosion</b> and the built-in <b>discharge</b> block also
+              do nothing on their own - a beam never runs the impact code
+              that would trigger them (use dischargeOnFire
+              instead).</em></label>
+      </div>
+    </details>
   </section>
 
-  <section class="type-section" data-type="physics" id="sec-physics">
-    <h2>Physics Weapon</h2>
-    <div class="grid">
-      <label class="field"><span>projectileSpeed</span>
-        <input type="number" step="any" data-path="weapon.projectileSpeed"></label>
-      <label class="field"><span>projectileSpeedVariance</span>
-        <input type="number" step="any" data-path="weapon.projectileSpeedVariance"></label>
-      <label class="field"><span>projectilePrefab</span>
-        <input type="text" data-path="weapon.projectilePrefab" placeholder="asset name"></label>
-    </div>
-  </section>
 
   <section class="type-section" data-type="minion" id="sec-minion">
-    <h2>Minion Spawner</h2>
+    <h2>Minion Spawner (pets / drones)</h2>
     <div class="grid">
+      <label class="field"><span>how these work</span>
+        <em>A minion spawner does NOT fire a projectile - it spawns a real
+            UNIT that then lives and fights on its own AI. So the spawner's
+            own stats barely matter; almost everything about the pet comes
+            from the unit you pick below. Only 5 weapons in the game are true
+            minion spawners and they are all enemy assets, so use one of
+            those as your template.</em></label>
       <label class="field"><span>minionPrefab</span>
-        <input type="text" data-path="weapon.minionPrefab" placeholder="unit asset name"></label>
+        <input type="text" id="f-minion-custom" data-path="weapon.minionPrefab"
+               placeholder="Enemy_Fly Variant Drone">
+        <em>WHICH pet to spawn - the field that actually matters. Use the
+            picker below.</em></label>
+      <label class="field"><span>minion presets</span>
+        <select id="f-minion-preset">
+          <option value="">-- pick a unit --</option>
+          <optgroup label="Player drones (what the drone gadgets summon)">
+            <option value="Enemy_Fly Variant Drone">Drone - Caps (gun)</option>
+            <option value="Enemy_Fly Variant Drone Electric">Drone - Electron (electric)</option>
+            <option value="Enemy_Fly Variant Drone Missile">Drone - Purple (missiles)</option>
+            <option value="Enemy_Fly Variant Drone Phantom">Drone - Phantom (tech)</option>
+            <option value="Enemy_Fly Variant Drone Suicide">Drone - Suicide (kamikaze)</option>
+          </optgroup>
+          <optgroup label="Other spawnables (advanced)">
+            <option value="Unit Mine FloaterOfficerCaps">Mine (FloaterOfficerCaps)</option>
+            <option value="Enemy_Cross Variant Pin">Cross Pin</option>
+            <option value="Unit Cross OneShot 4">Cross OneShot 4</option>
+            <option value="Enemy_Child">Queen Child</option>
+          </optgroup>
+        </select>
+        <em>fills the field above</em></label>
       <label class="field"><span>projectileSpeed</span>
         <input type="number" step="any" data-path="weapon.projectileSpeed">
-        <em>launch speed</em></label>
+        <em>how fast the pet is flung out as it spawns - it flies under its
+            own power after that</em></label>
+      <label class="field"><span>projectileSpeedVariance</span>
+        <input type="number" step="any" data-path="weapon.projectileSpeedVariance">
+        <em>random +/- on that launch speed, so a batch scatters</em></label>
       <label class="field"><span>minionFacesShootDirection</span>
         <select data-path="weapon.minionFacesShootDirection" data-type="bool">
           <option value="">keep template</option>
           <option value="true">true</option><option value="false">false</option>
-        </select></label>
+        </select>
+        <em>spawn it already facing the way you fired</em></label>
     </div>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">velocityInfluenceData
+        <span class="tag">your speed adds to the launch</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>multiplyer</span>
+          <input type="number" step="any"
+                 data-path="weapon.velocityInfluenceData.multiplyer">
+          <em>how much of YOUR ship's velocity is added to the pet's launch
+              (the game really does spell it "multiplyer")</em></label>
+        <label class="field"><span>limit</span>
+          <input type="number" step="any"
+                 data-path="weapon.velocityInfluenceData.limit">
+          <em>caps how much speed can be added</em></label>
+        <label class="field"><span>influenceMode</span>
+          <select data-path="weapon.velocityInfluenceData.influenceMode">
+            <option value="">keep template</option>
+            <option value="AnyDirection">AnyDirection</option>
+            <option value="Projected">Projected</option>
+          </select>
+          <em>AnyDirection adds your movement as-is; Projected keeps only the
+              part along your aim</em></label>
+        <label class="field"><span>allowSlowDown</span>
+          <select data-path="weapon.velocityInfluenceData.allowSlowDown" data-type="bool">
+            <option value="">keep template</option>
+            <option value="true">true</option><option value="false">false</option>
+          </select>
+          <em>true lets backing away subtract speed</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">what applies to a minion spawner
+        <span class="tag">read me</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>WORKS</span>
+          <em>minionPrefab, projectileSpeed (+Variance),
+              minionFacesShootDirection, velocityInfluenceData, plus the
+              trigger-side stats: fireRate, cost / resourceUsed, burstSize
+              and burstDelay, projectileCount (spawn several at once), spread
+              and angle options, warmupTime.</em></label>
+        <label class="field"><span>does NOTHING</span>
+          <em>damage, burn, explosion, discharge, pushForce, and every
+              projectile option (rangeData, lifetimeData, impactBehaviour,
+              homing, piercing, bounce, noise, rotation, subEmitter) - the
+              spawner never creates a projectile to carry them. The pet's own
+              damage, health and weapon live on the unit prefab and are not
+              editable from JSON.</em></label>
+        <label class="field"><span>about the drone GADGETS</span>
+          <em>The drones you find in-game (Module Active Drone Caps /
+              Electron / Purple / Phantom / Suicide) are a DIFFERENT module
+              type - SpawnMinionModuleData - which Weapon Forge cannot use as
+              a template, because it holds a unit rather than a weapon; the
+              build is skipped with a "no weapon" error. To make your own
+              drone launcher, take a minion-spawner weapon template above and
+              point minionPrefab at the drone you want.</em></label>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2>Sub-Emitter (optional)</h2>
+    <details class="block">
+      <summary><input type="checkbox" class="gate">subEmitter
+        <span class="tag">fire a WHOLE weapon when the shot ends</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>subEmitter</span>
+          <input type="text" data-path="weapon.subEmitter"
+                 placeholder="Forge Weapon My Sub">
+          <em>name of ANOTHER weapon to fire when this shot expires or
+              hits. Use a stock weapon name, or one of YOUR WeaponForge
+              weapons - for those the name is
+              <b>"Forge Weapon " + the "name" field</b> from its .json
+              (e.g. name "White Popper Sub" &rarr;
+              "Forge Weapon White Popper Sub").</em></label>
+        <label class="field"><span>1. turn on a trigger</span>
+          <em>the subEmitter does NOTHING until you set <b>fireSub: true</b>
+              on at least one trigger above:<br>
+              &bull; <b>rangeData.fireSub</b> - when it reaches max range<br>
+              &bull; <b>lifetimeData.fireSub</b> - when its timer runs out<br>
+              &bull; <b>impactBehaviour.fireSub</b> - on impact (enemies AND
+              terrain)</em></label>
+        <label class="field"><span>2. mind the direction</span>
+          <em>sub shots always fire STRAIGHT UP from where the parent died -
+              they do NOT inherit its direction. Give the sub weapon
+              <b>spread: 360</b> (and a few projectileCount) so it bursts
+              outward like shrapnel instead of spraying upward.</em></label>
+        <label class="field"><span>3. chaining &amp; load order</span>
+          <em>a sub can have its OWN subEmitter, so chains nest as deep as
+              you like. Weapon .json files load <b>alphabetically</b>, and a
+              sub must already exist when the weapon referencing it loads -
+              so name files in REVERSE chain order
+              (<code>00_Shrapnel.json</code> &rarr; <code>01_Popper.json</code>
+              &rarr; <code>FlakCannon.json</code>). Careful: a chain that
+              loops back on itself will hang the game.</em></label>
+        <label class="field"><span>4. hide the helpers</span>
+          <em>sub weapons work even if you can't obtain them - set the
+              sub's <b>source</b> to <code>none</code> and it will never be
+              offered as a pick or a drop, while still being findable by
+              name.</em></label>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2>Turret / Mine (optional)</h2>
+    <details class="block">
+      <summary><input type="checkbox" class="gate">turret
+        <span class="tag">the shot keeps firing WHILE it's alive</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>turret</span>
+          <select data-path="turret" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>the projectile repeatedly fires another weapon while alive
+              (unlike subEmitter, which only fires when it DIES). Projectile
+              weapons only, not physics/lobbed. Firing is FREE - no
+              resource is spent per volley.</em></label>
+        <label class="field"><span>turretWeapon</span>
+          <input type="text" data-path="turretWeapon"
+                 placeholder="Forge Weapon TurretShot">
+          <em>REQUIRED - the weapon fired each volley. For your own Weapon
+              Forge weapons the name is <b>"Forge Weapon " + its "name"</b>.
+              Resolved at runtime, so unlike subEmitter the file load order
+              does NOT matter.</em></label>
+        <label class="field"><span>turretInterval</span>
+          <input type="number" step="any" data-path="turretInterval"
+                 placeholder="0.5">
+          <em>seconds between volleys</em></label>
+        <label class="field"><span>turretDelay</span>
+          <input type="number" step="any" data-path="turretDelay"
+                 placeholder="0">
+          <em>seconds before the FIRST volley - set this to roughly the
+              flight time so it starts firing once it has settled</em></label>
+        <label class="field"><span>turretAim</span>
+          <select data-path="turretAim">
+            <option value="">rotate (sweeping spiral)</option>
+            <option value="rotate">rotate (sweeping spiral)</option>
+            <option value="nearest">nearest enemy (auto-target)</option>
+          </select>
+          <em>"nearest" holds fire when nothing is in range</em></label>
+        <label class="field"><span>turretRotation</span>
+          <input type="number" step="any" data-path="turretRotation"
+                 placeholder="90">
+          <em>sweep speed in degrees/second (rotate mode). 0 = always fires
+              the same way</em></label>
+        <label class="field"><span>turretDirection</span>
+          <select data-path="turretDirection">
+            <option value="">cw</option>
+            <option value="cw">clockwise</option>
+            <option value="ccw">counter-clockwise</option>
+          </select>
+          <em>Which way the sweep rotates.</em></label>
+        <label class="field"><span>turretStartAngle</span>
+          <input type="number" step="any" data-path="turretStartAngle"
+                 placeholder="0">
+          <em>angle of the first volley, degrees (rotate mode)</em></label>
+        <label class="field"><span>turretRange</span>
+          <input type="number" step="any" data-path="turretRange"
+                 placeholder="12">
+          <em>how far it looks for a target (nearest mode)</em></label>
+        <label class="field"><span>turretContactDamage</span>
+          <select data-path="turretContactDamage" data-type="bool">
+            <option value="">true</option>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+          <em>MINE behaviour: hurts enemies touching it, using this weapon's
+              own damage, without dying or exploding</em></label>
+        <label class="field"><span>turretContactRadius</span>
+          <input type="number" step="any" data-path="turretContactRadius"
+                 placeholder="0.5">
+          <em>touch radius for contact damage</em></label>
+        <label class="field"><span>turretContactDelay</span>
+          <input type="number" step="any" data-path="turretContactDelay"
+                 placeholder="0.4">
+          <em>seconds before the SAME enemy can be hurt again</em></label>
+        <label class="field"><span>how to make it hover</span>
+          <em>in <b>rangeData</b> set <code>slowDown: true</code> and
+              <code>destroyWhenReached: false</code> so it glides to a stop
+              and stays; in <b>lifetimeData</b> set <code>time: 4</code> so
+              it vanishes after 4s. To let it survive bumping into things,
+              set <b>impactBehaviour.enabled</b> false. To ricochet off
+              walls turn on <b>projectileBounceData</b> AND give it a mask
+              (<code>"layerMask": ["Ground"]</code>) - enabled alone does
+              nothing. Don't give it a pierceLimit - that would delete
+              it.</em></label>
+        <label class="field"><span>set for you automatically</span>
+          <em>&bull; the turret owns contact damage, so the projectile's own
+              collision damage is zeroed - no double hits.<br>
+              &bull; piercing is switched on so enemies can't drag the
+              hovering disc around (walls still stop/bounce it).<br>
+              &bull; if the weapon has no way to expire, a lifetime is
+              forced so a turret can't live forever.<br>
+              &bull; turret is ignored on an orbit weapon, and a turret
+              can't fire itself.</em></label>
+      </div>
+    </details>
   </section>
 
   <section>
@@ -1048,9 +1610,11 @@
       <summary><input type="checkbox" class="gate">module card overrides</summary>
       <div class="fields grid">
         <label class="field"><span>displayName</span>
-          <input type="text" data-path="module.displayName"></label>
+          <input type="text" data-path="module.displayName">
+          <em>Name on the module card. Leave blank to reuse the weapon's displayName.</em></label>
         <label class="field"><span>level</span>
-          <input type="number" step="1" data-path="module.level"></label>
+          <input type="number" step="1" data-path="module.level">
+          <em>Starting level - picks which entry of any level-scaling value is used.</em></label>
         <label class="field"><span>icon (pick a weapon's icon)</span>
           <select id="f-icon-preset">
             <option value="">-- keep template icon --</option>
@@ -1088,7 +1652,8 @@
           <em>fills the icon field below</em></label>
         <label class="field"><span>icon (sprite asset name)</span>
           <input type="text" id="f-icon-custom" data-path="module.icon"
-                 placeholder="e.g. HUD_GridTiles_13"></label>
+                 placeholder="e.g. HUD_GridTiles_13">
+          <em>Sprite shown on the module card; use the dropdown above to pick one.</em></label>
         <label class="field"><span>card color (game presets)</span>
           <select id="f-color-preset">
             <option value="">-- pick a game color --</option>
@@ -1107,7 +1672,8 @@
                  placeholder="ColorPurple or #7fd4ff">
           <em>hex like #7fd4ff makes a brand-new color</em></label>
         <label class="field" style="grid-column: 1 / -1"><span>description</span>
-          <textarea data-path="module.description"></textarea></label>
+          <textarea data-path="module.description"></textarea>
+          <em>overrides the card blurb - leave blank to reuse the description above</em></label>
       </div>
       <div class="fields grid" style="padding-top:0">
         <label class="field"><span>resource gain: resource</span>
@@ -1171,18 +1737,23 @@
     "Module Weapon Electron Toroid": "projectile",
     "Module Weapon White Worm": "projectile",
     "Module Weapon Caps Laser": "hitscan",
-    "Module Weapon Caps Loon": "physics",
-    "Module Weapon Purple Can": "physics",
-    "Module Weapon Purple ClusterCube": "physics",
-    "Module Weapon Tech Dandelion": "physics",
-    "Module Weapon Fly": "minion",
+    "Module Weapon Caps Loon": "projectile",
+    "Module Weapon Purple Can": "projectile",
+    "Module Weapon Purple ClusterCube": "projectile",
+    "Module Weapon Tech Dandelion": "projectile",
+    "Module Weapon Fly": "projectile",
+    "Weapon Minion CrossSmallCaps": "minion",
+    "Weapon Minion Cross Red": "minion",
+    "Weapon Minion CrossRedBomber": "minion",
+    "Weapon_Minion_CrossQueen": "minion",
+    "Weapon FloaterOfficerCaps Mines": "minion",
     // Gadget modules (pick a gadget slot). Type shown is a best-guess
     // for extra fields; core fields always apply.
-    "Module Active Purple AirMines": "physics",
+    "Module Active Purple AirMines": "projectile",
     "Module Active Purple Surge": "projectile",
     "Module Active Purple Teardrop": "projectile",
     "Module Active Caps Igniter": "projectile",
-    "Module Active Caps Vial": "physics",
+    "Module Active Caps Vial": "projectile",
     "Module Active Electron Circuit": "projectile",
     "Module Active Generator Fuel": "projectile",
     // Enemy weapons (raw WeaponData). Types are best-guess for which
@@ -1190,10 +1761,10 @@
     "Weapon_Grunt": "projectile",
     "Weapon_Raven": "projectile",
     "Weapon_Zipper": "projectile",
-    "Weapon_Fly": "minion",
+    "Weapon_Fly": "projectile",
     "Weapon_Fly_Laser": "hitscan",
-    "Weapon_Fly_Dad": "minion",
-    "Weapon_PhantomDrone": "minion",
+    "Weapon_Fly_Dad": "projectile",
+    "Weapon_PhantomDrone": "hitscan",
     "Weapon_Turret_Laser": "hitscan",
     "Weapon_Turret_Worm": "projectile",
     "Weapon_CrossQueen": "projectile",
@@ -1202,12 +1773,12 @@
     "Weapon_CrossAlpha": "projectile",
     "Weapon Enemy Soldier": "projectile",
     "Weapon Enemy DroneMissile": "projectile",
-    "Weapon Enemy Queen Bomb": "physics",
+    "Weapon Enemy Queen Bomb": "projectile",
     "Weapon Enemy Turret Sniper": "projectile",
     "Weapon Crawler Laser": "hitscan",
     "Weapon FireBall": "projectile",
     "Weapon Fish": "projectile",
-    "Weapon Drone": "minion",
+    "Weapon Drone": "projectile",
     "Weapon BouncerRed": "projectile",
     "Weapon Rocket Rookie": "projectile",
     "Weapon Rocket Soldier": "projectile",
@@ -1235,7 +1806,7 @@
     }
     // Loot weight only matters when the weapon can drop.
     var source = document.getElementById("f-source").value;
-    var canDrop = source !== "starter";
+    var canDrop = source !== "starter" && source !== "none";
     document.getElementById("f-lootweight-field")
       .classList.toggle("hidden", !canDrop);
     // Shop price/unlock only matter when the weapon is purchasable.
@@ -1313,6 +1884,22 @@
       deepSet(out, el.getAttribute("data-path"), value);
     }
 
+    // homing turbulence curve is typed as text - emit it as a real
+    // [[time,value], ...] array so the mod can read it.
+    if (out.weapon && out.weapon.homingData &&
+        typeof out.weapon.homingData.turbulenceDistanceCurve === "string") {
+      var raw = out.weapon.homingData.turbulenceDistanceCurve.trim();
+      var parsed = null;
+      try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+      if (parsed && Array.isArray(parsed)) {
+        out.weapon.homingData.turbulenceDistanceCurve = parsed;
+      } else {
+        delete out.weapon.homingData.turbulenceDistanceCurve;
+        warn.push("⚠ turbulenceDistanceCurve must look like " +
+                  "[[0,0],[10,1]] - ignored.");
+      }
+    }
+
     // explosion: convert flat damageAmount/damageType into the
     // damages list the game expects
     if (out.weapon && out.weapon.explosion) {
@@ -1386,6 +1973,14 @@
       if (this.value) {
         document.getElementById("f-proj-color-custom").value =
           this.value;
+      }
+      refresh();
+    });
+
+  document.getElementById("f-minion-preset")
+    .addEventListener("change", function () {
+      if (this.value) {
+        document.getElementById("f-minion-custom").value = this.value;
       }
       refresh();
     });
@@ -1627,6 +2222,67 @@
         color: "ColorBlue",
         resourceGain: { resource: "Resource White", amount: 12 }
       }
+    },
+    "TripleRing": {
+      name: "TripleRing",
+      displayName: "TRIPLE RING",
+      description: "Three nested rings of orbs, each spinning against the last.",
+      template: "Module Weapon White Worm",
+      slot: "primary",
+      target: "enemies",
+      orbit: true,
+      orbitMode: "passive",
+      orbitDirection: "cw",
+      orbitRadius: 2,
+      orbitSpeed: 140,
+      orbitRings: 3,
+      orbitRingMode: "split",
+      orbitRingSpacing: 1.2,
+      orbitRingStagger: "auto",
+      orbitRingAlternate: true,
+      orbitRingSpeedStep: 0.75,
+      orbitContactDamage: true,
+      orbitDamageRepeatDelay: 0.3,
+      orbitSpinUp: 1,
+      weapon: {
+        projectileCount: 9,
+        damage: { amount: 3, damageType: "Resource White" }
+      },
+      module: { color: "ColorPurple" }
+    },
+    "TurretDisc": {
+      name: "TurretDisc",
+      displayName: "SENTRY DISC",
+      description: "A disc that glides to a stop, then sprays fire for four seconds.",
+      template: "Module Weapon White DiscGun",
+      slot: "primary",
+      target: "enemies",
+      weapon: {
+        damage: { amount: 2, damageType: "Resource White" },
+        resourceUsed: "Resource White",
+        cost: 4,
+        fireRate: 0.8,
+        projectileCount: 1,
+        projectileSpeed: 14,
+        rangeData: {
+          enabled: true, range: 5, slowDown: true,
+          destroyWhenReached: false
+        },
+        lifetimeData: { enabled: true, time: 4 },
+        impactBehaviour: { enabled: false },
+        projectileBounceData: { enabled: true, layerMask: "Ground" }
+      },
+      module: { color: "ColorWhite" },
+      turret: true,
+      turretWeapon: "Forge Weapon TurretShot",
+      turretInterval: 0.25,
+      turretAim: "rotate",
+      turretRotation: 140,
+      turretDirection: "cw",
+      turretDelay: 0.8,
+      turretContactDamage: true,
+      turretContactRadius: 0.6,
+      turretContactDelay: 0.4
     },
     "SpiralVortex": {
       name: "SpiralVortex",
