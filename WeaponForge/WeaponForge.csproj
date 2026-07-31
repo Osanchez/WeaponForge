@@ -53,6 +53,11 @@
     <Reference Include="Punk.Main">
       <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\Punk.Main.dll</HintPath>
     </Reference>
+    <!-- WeaponBase.Fire returns a UniTaskVoid, so the type must be
+         resolvable even though we just let the task run. -->
+    <Reference Include="UniTask">
+      <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\UniTask.dll</HintPath>
+    </Reference>
     <Reference Include="ServiceLocator">
       <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\ServiceLocator.dll</HintPath>
     </Reference>
@@ -132,6 +137,8 @@
     <Compile Include="ForgePierceCompat.cs" />
     <Compile Include="ForgeWaveMotion.cs" />
     <Compile Include="ForgeWavePatch.cs" />
+    <Compile Include="ForgeTurret.cs" />
+    <Compile Include="ForgeProjectileTracker.cs" />
     <Compile Include="StarterFiles.cs" />
     <Compile Include="JsonFieldMapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -33,6 +33,18 @@ namespace WeaponForge
             public float speed = 120f;        // rotation, degrees/second
             public float hitRadius = 0.6f;    // contact size per orb
 
+            // Concentric rings. rings=1 is the classic single ring.
+            //   ringsFullCount false -> the weapon's projectileCount is SPLIT
+            //     across the rings (round-robin, so they stay even).
+            //   ringsFullCount true  -> EVERY ring gets the full count, so
+            //     the orb total is projectileCount * rings.
+            public int rings = 1;
+            public float ringSpacing = 1.5f;  // gap between one ring and the next
+            public bool ringsFullCount;
+            public float ringStagger = -1f;   // <0 = auto half-step; else deg per ring
+            public bool ringAlternate;        // flip spin direction every other ring
+            public float ringSpeedStep = 1f;  // speed multiplier per ring outward
+
             // Spiral-outward behaviour (see SpiralMode above). When on,
             // "radius" is the OUTER edge and pulse/fling are ignored.
             public SpiralMode spiral = SpiralMode.Off;
@@ -42,6 +54,10 @@ namespace WeaponForge
             public float spiralKillDistance = 14f;// remove launched orb past this
 
             // What the orbs do.
+            // weaponEffects: pass the weapon's FULL hit through - burn, the
+            // got-attacked/aggro event, kill credit, plus its explosion and
+            // discharge. Off = plain contact damage only.
+            public bool weaponEffects = true;
             public bool contactDamage = true;
             public float damageRepeatDelay = 0.3f;  // per enemy
             public bool blockProjectiles;     // destroy enemy shots touched

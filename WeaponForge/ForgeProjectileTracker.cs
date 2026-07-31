@@ -1,0 +1,106 @@
+using System.Collections.Generic;
+using HarmonyLib;
+using UnityEngine;
+
+namespace WeaponForge
+{
+    // Keeps a list of live ENEMY projectiles so orbit orbs can shoot them
+    // down.
+    //
+    // Why this is needed: PUNK projectiles resolve their own collisions with
+    // a CircleCast, so their Collider2D is DISABLED on the prefab
+    // (m_Enabled: 0). That makes them completely invisible to
+    // Physics2D.OverlapCircle - which is why "orbitBlockProjectiles" never
+    // blocked anything. Instead we register each enemy projectile as it is
+    // shot and do a plain distance test.
+    //
+    // Tracking is off unless some weapon actually asks for blocking, so
+    // there's zero cost (and no list growth) for everyone else.
+    public static class ForgeProjectileTracker
+    {
+        // Set by WeaponBuilder when any orbit weapon enables blockProjectiles.
+        public static bool Enabled;
+
+        private static readonly List<Projectile> _live = new List<Projectile>();
+        private static int _enemyLayer = -2;
+
+        private static int EnemyLayer
+        {
+            get
+            {
+                if (_enemyLayer == -2)
+                    _enemyLayer = LayerMask.NameToLayer("EnemyProjectiles");
+                return _enemyLayer;
+            }
+        }
+
+        public static void Register(Projectile projectile)
+        {
+            if (!Enabled || projectile == null)
+                return;
+            if (EnemyLayer < 0 || projectile.gameObject.layer != EnemyLayer)
+                return;
+
+            // Destroyed entries are pruned lazily; keep that bounded even if
+            // nothing is calling DestroyNear for a while.
+            if (_live.Count > 256)
+                Prune();
+
+            _live.Add(projectile);
+        }
+
+        private static void Prune()
+        {
+            for (int i = _live.Count - 1; i >= 0; i--)
+                if (_live[i] == null)
+                    _live.RemoveAt(i);
+        }
+
+        // Destroys tracked enemy shots within `radius` of `pos`.
+        public static int DestroyNear(Vector2 pos, float radius)
+        {
+            if (_live.Count == 0)
+                return 0;
+
+            float sqr = radius * radius;
+            int killed = 0;
+
+            for (int i = _live.Count - 1; i >= 0; i--)
+            {
+                Projectile p = _live[i];
+                if (p == null)
+                {
+                    _live.RemoveAt(i);
+                    continue;
+                }
+
+                if (((Vector2)p.transform.position - pos).sqrMagnitude <= sqr)
+                {
+                    _live.RemoveAt(i);
+                    Object.Destroy(p.gameObject);
+                    killed++;
+                }
+            }
+
+            return killed;
+        }
+
+        public static void Reset()
+        {
+            _live.Clear();
+        }
+
+        [HarmonyPatch(typeof(Projectile), "Shoot")]
+        public class OnShoot
+        {
+            static void Postfix(Projectile __instance)
+            {
+                try
+                {
+                    Register(__instance);
+                }
+                catch { }
+            }
+        }
+    }
+}

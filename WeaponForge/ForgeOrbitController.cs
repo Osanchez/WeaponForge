@@ -14,6 +14,10 @@ namespace WeaponForge
         private class Orb
         {
             public GameObject go;
+            // The (disabled) Projectile on the orb art. We never let it fly,
+            // but we DO reuse it as the IProjectile for a hit, so contact
+            // goes through the game's real projectile-hit path.
+            public Projectile proj;
             public bool alive = true;
             public float regenAt;
 
@@ -45,6 +49,7 @@ namespace WeaponForge
 
         private bool active;
         private float angleDeg;
+        private float[] ringAngle;   // one spin accumulator per ring
         private float activeSince;
         private float flingUntil;
 
@@ -173,14 +178,33 @@ namespace WeaponForge
             int count = 4;
             if (weapon != null)
                 count = Mathf.Max(1, Mathf.RoundToInt(weapon.ProjectileCount));
-            SetOrbCount(count);
+
+            // Concentric rings. "full count" gives every ring the weapon's
+            // whole projectileCount; otherwise that count is split across
+            // them, so adding rings re-arranges the orbs you already have
+            // instead of multiplying them.
+            int rings = Mathf.Max(1, cfg.rings);
+            int total = cfg.ringsFullCount ? count * rings : count;
+            SetOrbCount(total);
 
             float spinMul = (cfg.spinUpSeconds > 0f)
                 ? Mathf.Clamp01((Time.time - activeSince) / cfg.spinUpSeconds)
                 : 1f;
 
-            float dir = cfg.clockwise ? -1f : 1f;
-            angleDeg += dir * cfg.speed * spinMul * Time.deltaTime;
+            // Each ring spins on its own accumulator so it can run at its
+            // own speed and (optionally) the opposite way.
+            if (ringAngle == null || ringAngle.Length < rings)
+                ringAngle = new float[rings];
+
+            for (int r = 0; r < rings; r++)
+            {
+                bool flip = cfg.ringAlternate && (r % 2 == 1);
+                float rdir = (cfg.clockwise ^ flip) ? -1f : 1f;
+                float rspeed = cfg.speed *
+                    ((cfg.ringSpeedStep == 1f) ? 1f : Mathf.Pow(cfg.ringSpeedStep, r));
+                ringAngle[r] += rdir * rspeed * spinMul * Time.deltaTime;
+            }
+            angleDeg = ringAngle[0];
 
             // Fixed-ring radius (with pulse/fling). Spiral modes drive their
             // own per-orb radius instead, so pulse/fling don't apply there.
@@ -197,7 +221,6 @@ namespace WeaponForge
             }
 
             Vector3 center = unit.transform.position;
-            float step = 360f / count;
 
             for (int i = 0; i < orbs.Count; i++)
             {
@@ -206,7 +229,7 @@ namespace WeaponForge
                 // The orb list only ever grows; if the live count shrank
                 // (e.g. a +projectile module lost power), hide and skip the
                 // extras so they don't render or keep dealing contact damage.
-                if (i >= count)
+                if (i >= total)
                 {
                     if (orb.go != null)
                         orb.go.SetActive(false);
@@ -230,11 +253,43 @@ namespace WeaponForge
                     }
                 }
 
-                float a = (angleDeg + i * step) * Mathf.Deg2Rad;
+                // Which ring this orb belongs to, and its slot in that ring.
+                // Split mode deals orbs out round-robin so the rings stay as
+                // even as possible when the count doesn't divide cleanly.
+                int ring, slot, slotsInRing;
+                if (cfg.ringsFullCount)
+                {
+                    ring = i / count;
+                    slot = i % count;
+                    slotsInRing = count;
+                }
+                else
+                {
+                    ring = i % rings;
+                    slot = i / rings;
+                    slotsInRing = (count - ring + rings - 1) / rings;
+                    if (slotsInRing < 1)
+                        slotsInRing = 1;
+                }
+                if (ring >= rings)
+                    ring = rings - 1;
+
+                float orbRadius = ringRadius + ring * cfg.ringSpacing;
+                float stepInRing = 360f / slotsInRing;
+
+                // Auto stagger splits one slot evenly between the rings, so
+                // the orbs interleave instead of lining up as spokes. (Using
+                // a flat half-slot would make ring 2 of 3 wrap back onto the
+                // aligned position.)
+                float stagger = (cfg.ringStagger < 0f)
+                    ? stepInRing * ((float)ring / rings)
+                    : cfg.ringStagger * ring;
+
+                float a = (ringAngle[ring] + slot * stepInRing + stagger) * Mathf.Deg2Rad;
                 Vector3 pos = (cfg.spiral == ForgeOrbit.SpiralMode.Off)
-                    ? center + new Vector3(Mathf.Cos(a) * ringRadius,
-                                           Mathf.Sin(a) * ringRadius, 0f)
-                    : SpiralPos(orb, a, center);
+                    ? center + new Vector3(Mathf.Cos(a) * orbRadius,
+                                           Mathf.Sin(a) * orbRadius, 0f)
+                    : SpiralPos(orb, a, center, orbRadius);
 
                 if (orb.go != null)
                 {
@@ -244,7 +299,7 @@ namespace WeaponForge
 
                 bool hitEnemy = false;
                 if (cfg.contactDamage || cfg.destroyOnEnemy)
-                    hitEnemy = DamageAt(pos);
+                    hitEnemy = DamageAt(orb, pos);
                 if (cfg.pushForce > 0f)
                     PushAt(pos, center);
                 if (cfg.blockProjectiles)
@@ -265,7 +320,7 @@ namespace WeaponForge
         // spiralInner to the outer radius over spiralOutTime, then either
         // detaches and flies straight off (Launch) or snaps back to the
         // center and repeats (Sweep). Mutates the orb's spiral state.
-        private Vector3 SpiralPos(Orb orb, float angleRad, Vector3 center)
+        private Vector3 SpiralPos(Orb orb, float angleRad, Vector3 center, float outerRadius)
         {
             // A launched orb flies straight until it's far enough away,
             // then recycles back to a fresh spiral from the inner radius.
@@ -286,7 +341,7 @@ namespace WeaponForge
 
             if (frac >= 1f)
             {
-                Vector3 outerPos = Polar(center, angleRad, cfg.radius);
+                Vector3 outerPos = Polar(center, angleRad, outerRadius);
 
                 if (cfg.spiral == ForgeOrbit.SpiralMode.Launch)
                 {
@@ -310,7 +365,7 @@ namespace WeaponForge
             }
 
             Vector3 pos = Polar(center, angleRad,
-                Mathf.Lerp(cfg.spiralInner, cfg.radius, frac));
+                Mathf.Lerp(cfg.spiralInner, outerRadius, frac));
             orb.prevPos = pos;
             orb.hasPrev = true;
             return pos;
@@ -322,7 +377,7 @@ namespace WeaponForge
                 Mathf.Cos(angleRad) * r, Mathf.Sin(angleRad) * r, 0f);
         }
 
-        private bool DamageAt(Vector3 pos)
+        private bool DamageAt(Orb orb, Vector3 pos)
         {
             if (weapon == null)
                 return false;
@@ -347,10 +402,86 @@ namespace WeaponForge
                     continue;
                 }
 
-                hb.TakeDamage(weapon.Damage);
+                Strike(orb, hb, pos);
                 lastHit[hb] = Time.time;
             }
             return hit;
+        }
+
+        // One orb "hit". Routed through the game's own projectile-hit path
+        // when we can, so the victim gets everything a normal shot would
+        // deliver - burn, the got-attacked/aggro event and kill credit -
+        // not just raw damage. Then the weapon's explosion / discharge are
+        // spawned, since an orbit weapon has no other way to deliver them.
+        private void Strike(Orb orb, HealthBase hb, Vector3 pos)
+        {
+            var pw = weapon as ProjectileWeapon;
+
+            if (cfg.weaponEffects && orb != null && orb.proj != null)
+            {
+                // Stamp the live weapon's stats onto the stand-in projectile
+                // (read fresh so +damage / +burn modules keep applying).
+                Projectile p = orb.proj;
+                p.Owner = (unit != null) ? unit : p.Owner;
+                p.Damage = weapon.Damage;
+                p.Burn = weapon.Burn;
+                p.Explosion = weapon.Explosion;
+                p.DischargeData = weapon.DischargeData;
+                if (pw != null)
+                {
+                    // These two decide whether burn lands on contact or is
+                    // left to the explosion - keep the weapon's own answer.
+                    p.ImpactBehaviour = pw.ImpactBehaviour;
+                    p.LifetimeData = pw.LifetimeData;
+                }
+
+                Vector2 normal = ((Vector2)(hb.transform.position - pos)).normalized;
+                hb.ProjectileCollided(p, pos, normal);
+            }
+            else
+            {
+                hb.TakeDamage(weapon.Damage);
+            }
+
+            if (!cfg.weaponEffects)
+                return;
+
+            SpawnWeaponExplosion(pos);
+            SpawnWeaponDischarge(pos);
+        }
+
+        private void SpawnWeaponExplosion(Vector3 pos)
+        {
+            Explosion explosion = weapon.Explosion;
+            if (explosion.damages == null || explosion.damages.Count == 0 ||
+                explosion.radius <= 0f)
+            {
+                return;   // nothing configured (SpawnExplosion errors on empty)
+            }
+
+            try
+            {
+                explosion.Owner = unit;
+                explosion.Burn = weapon.Burn;
+                ServiceLocator.Get<ExplosionManager>()
+                    .SpawnExplosion(pos, explosion);
+            }
+            catch { }
+        }
+
+        private void SpawnWeaponDischarge(Vector3 pos)
+        {
+            DischargeData discharge = weapon.DischargeData;
+            if (discharge.chainLength <= 0)
+                return;   // no chain configured
+
+            try
+            {
+                ElectricityManager em;
+                if (ServiceLocator.TryGet<ElectricityManager>(out em))
+                    em.SpawnDischarge(discharge, pos);
+            }
+            catch { }
         }
 
         private bool TerrainAt(Vector3 pos)
@@ -373,6 +504,14 @@ namespace WeaponForge
 
         private void BlockAt(Vector3 pos)
         {
+            // Primary path: tracked enemy projectiles. Their colliders are
+            // DISABLED on the prefab (the game moves them by CircleCast), so
+            // a physics overlap can never find them - see
+            // ForgeProjectileTracker.
+            ForgeProjectileTracker.DestroyNear(pos, cfg.hitRadius);
+
+            // Fallback for anything that does carry a live collider on the
+            // EnemyProjectiles layer (e.g. lobbed/physics enemy shots).
             int n = Physics2D.OverlapCircle(pos, cfg.hitRadius, projFilter, buffer);
             for (int j = 0; j < n; j++)
                 if (buffer[j] != null)
@@ -427,9 +566,12 @@ namespace WeaponForge
                 // Stagger each orb's spiral cycle so they bloom/launch in
                 // sequence rather than all at once (harmless when Off).
                 int idx = orbs.Count;
+                GameObject newGo = SpawnOrb();
                 orbs.Add(new Orb
                 {
-                    go = SpawnOrb(),
+                    go = newGo,
+                    proj = (newGo != null)
+                        ? newGo.GetComponentInChildren<Projectile>(true) : null,
                     alive = true,
                     cycleStart = Time.time - dur * ((idx % count) / (float)count)
                 });
@@ -450,6 +592,11 @@ namespace WeaponForge
                 var proj = orb.GetComponentInChildren<Projectile>(true);
                 if (proj != null)
                     proj.enabled = false;
+                // An orb is pure art. A turret component ticks itself, so
+                // it would keep firing from the orb if the chosen visual
+                // came from a turret weapon.
+                foreach (var t in orb.GetComponentsInChildren<ForgeTurret>(true))
+                    Destroy(t);
                 foreach (var rb in orb.GetComponentsInChildren<Rigidbody2D>(true))
                     rb.simulated = false;
                 foreach (var col in orb.GetComponentsInChildren<Collider2D>(true))

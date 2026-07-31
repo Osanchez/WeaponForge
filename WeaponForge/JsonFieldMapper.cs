@@ -168,6 +168,31 @@ namespace WeaponForge
                 return true;
             }
 
+            // AnimationCurve as [[time, value], ...] - used by things like
+            // homingData.turbulenceDistanceCurve, where the curve maps
+            // distance-to-target onto how strong an effect is.
+            if (fieldType == typeof(AnimationCurve))
+            {
+                if (token.Type != JTokenType.Array)
+                    return false;
+
+                var curve = new AnimationCurve();
+                foreach (JToken point in token)
+                {
+                    if (point.Type != JTokenType.Array)
+                        continue;
+                    var pair = point.ToArray();
+                    if (pair.Length >= 2)
+                        curve.AddKey((float)pair[0], (float)pair[1]);
+                }
+
+                if (curve.length == 0)
+                    return false;
+
+                result = curve;
+                return true;
+            }
+
             if (fieldType == typeof(LayerMask))
             {
                 if (token.Type == JTokenType.Integer)
@@ -218,6 +243,32 @@ namespace WeaponForge
                 return true;
             }
 
+            // A single asset NAME where a list of assets is expected, e.g.
+            // "convertableCells": "CellType_Mud" - treat it as a one-item
+            // list so you don't have to write [...] for the common case.
+            if (token.Type == JTokenType.String &&
+                fieldType.IsGenericType &&
+                fieldType.GetGenericTypeDefinition() == typeof(List<>) &&
+                typeof(UnityEngine.Object).IsAssignableFrom(
+                    fieldType.GetGenericArguments()[0]))
+            {
+                Type single = fieldType.GetGenericArguments()[0];
+                UnityEngine.Object one = FindAsset(single, token.ToString());
+
+                if (one == null)
+                {
+                    Log.LogWarning(
+                        path + ": no " + single.Name + " asset named '" +
+                        token + "' was found");
+                    return false;
+                }
+
+                IList oneList = (IList)Activator.CreateInstance(fieldType);
+                oneList.Add(one);
+                result = oneList;
+                return true;
+            }
+
             // Lists of structs/classes, e.g. Explosion.damages.
             if (token.Type == JTokenType.Array &&
                 fieldType.IsGenericType &&
@@ -229,6 +280,32 @@ namespace WeaponForge
 
                 IList list =
                     (IList)Activator.CreateInstance(fieldType);
+
+                // A list of ASSETS (e.g. cellConvertData.convertableCells,
+                // a List<CellType>) is written as a list of asset NAMES -
+                // those must be looked up, never constructed.
+                if (typeof(UnityEngine.Object).IsAssignableFrom(elementType))
+                {
+                    foreach (JToken element in (JArray)token)
+                    {
+                        string assetName = element.ToString();
+                        UnityEngine.Object asset =
+                            FindAsset(elementType, assetName);
+
+                        if (asset == null)
+                        {
+                            Log.LogWarning(
+                                path + ": no " + elementType.Name +
+                                " asset named '" + assetName + "' was found");
+                            continue;
+                        }
+
+                        list.Add(asset);
+                    }
+
+                    result = list;
+                    return true;
+                }
 
                 int index = 0;
 

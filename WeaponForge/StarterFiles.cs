@@ -154,6 +154,68 @@ namespace WeaponForge
 ");
 
             File.WriteAllText(
+                Path.Combine(folder, "ExampleTurretShot.json"),
+@"{
+  ""name"": ""TurretShot"",
+  ""displayName"": ""SENTRY ROUND"",
+  ""description"": ""Sentry disc ammunition. Not obtainable."",
+  ""template"": ""Module Weapon White Popper"",
+  ""source"": ""none"",
+  ""weapon"": {
+    ""damage"": { ""amount"": 1, ""damageType"": ""Resource White"" },
+    ""cost"": 0,
+    ""projectileCount"": 1,
+    ""spread"": 0,
+    ""angleVariance"": 0,
+    ""projectileSpeed"": 18,
+    ""rangeData"": {
+      ""enabled"": true, ""range"": 7, ""destroyWhenReached"": true
+    }
+  },
+  ""module"": { ""color"": ""ColorWhite"" }
+}
+");
+
+            File.WriteAllText(
+                Path.Combine(folder, "ExampleTurretDisc.json"),
+@"{
+  ""name"": ""TurretDisc"",
+  ""displayName"": ""SENTRY DISC"",
+  ""description"": ""A disc that glides to a stop, then sprays fire for four seconds."",
+  ""template"": ""Module Weapon White DiscGun"",
+  ""slot"": ""primary"",
+  ""target"": ""enemies"",
+  ""source"": ""starter"",
+  ""weapon"": {
+    ""damage"": { ""amount"": 2, ""damageType"": ""Resource White"" },
+    ""resourceUsed"": ""Resource White"",
+    ""cost"": 4,
+    ""fireRate"": 0.8,
+    ""projectileCount"": 1,
+    ""projectileSpeed"": 14,
+    ""rangeData"": {
+      ""enabled"": true, ""range"": 5, ""slowDown"": true,
+      ""destroyWhenReached"": false
+    },
+    ""lifetimeData"": { ""enabled"": true, ""time"": 4 },
+    ""impactBehaviour"": { ""enabled"": false },
+    ""projectileBounceData"": { ""enabled"": true, ""layerMask"": ""Ground"" }
+  },
+  ""module"": { ""color"": ""ColorWhite"" },
+  ""turret"": true,
+  ""turretWeapon"": ""Forge Weapon TurretShot"",
+  ""turretInterval"": 0.25,
+  ""turretAim"": ""rotate"",
+  ""turretRotation"": 140,
+  ""turretDirection"": ""cw"",
+  ""turretDelay"": 0.8,
+  ""turretContactDamage"": true,
+  ""turretContactRadius"": 0.6,
+  ""turretContactDelay"": 0.4
+}
+");
+
+            File.WriteAllText(
                 Path.Combine(folder, "README.txt"),
 @"WEAPON FORGE - custom weapon definitions
 =========================================
@@ -197,6 +259,10 @@ source       where the weapon can show up (default ""starter""):
                ""starter""         - only as a new-game loadout pick
                ""loot""            - only as a drop from crates
                ""starterAndLoot""  - both
+               ""none""            - NEVER offered. Still built and
+                 findable by name, so use it for helper weapons that
+                 only exist to be referenced (subEmitter stages,
+                 turret ammo).
 lootWeight   (loot only, optional) drop chance vs other crate modules,
              default 10. Higher = more common. Crates roll from a
              weighted pool; your weapon joins it at this weight.

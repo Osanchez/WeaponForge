@@ -2,6 +2,10 @@ using HarmonyLib;
 
 namespace WeaponForge
 {
+    // Reset WeaponForge's per-run state at each run entry (so nothing from
+    // a previous run leaks). Covers the burn accumulator and the tracked
+    // enemy-projectile list.
+    //
     // Reset WeaponForge's own burn accumulator at each run entry (so a
     // boost from a previous run can't leak). Only active when WeaponForge
     // owns the burn engine (ModuleForge absent) - otherwise ModuleForge's
@@ -16,6 +20,7 @@ namespace WeaponForge
             {
                 if (ForgeBurnCompat.OwnsPatches)
                     ForgeBurn.Reset();
+                ForgeProjectileTracker.Reset();
             }
         }
 
@@ -26,6 +31,7 @@ namespace WeaponForge
             {
                 if (ForgeBurnCompat.OwnsPatches)
                     ForgeBurn.Reset();
+                ForgeProjectileTracker.Reset();
             }
         }
     }

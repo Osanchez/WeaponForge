@@ -279,6 +279,8 @@ namespace WeaponForge
 
             ApplyWave(weapon, root, fileName);
 
+            ApplyTurret(weapon, root, fileName);
+
             var moduleJson = root["module"] as JObject;
 
             if (moduleJson != null)
@@ -325,6 +327,14 @@ namespace WeaponForge
                 ((string)root["source"] ?? "starter")
                     .Trim().ToLowerInvariant();
 
+            // "none" = built and registered, but offered NOWHERE. Use it for
+            // helper weapons that only exist to be referenced by something
+            // else (a subEmitter stage, turret ammo) - they still resolve by
+            // name, they just never show up as a pick, a drop or in a crate.
+            bool hidden =
+                source == "none" || source == "nowhere" ||
+                source == "hidden" || source == "never";
+
             bool inStarter =
                 source == "starter" ||
                 source == "starterandloot" || source == "both";
@@ -333,8 +343,9 @@ namespace WeaponForge
                 source == "loot" ||
                 source == "starterandloot" || source == "both";
 
-            // Unknown value -> default to starter so it isn't lost.
-            if (!inStarter && !inLoot)
+            // Unknown value -> default to starter so it isn't lost. ("none"
+            // is a deliberate choice, so it skips that safety net.)
+            if (!inStarter && !inLoot && !hidden)
                 inStarter = true;
 
             return new ForgeEntry
@@ -894,6 +905,157 @@ namespace WeaponForge
                 ", freq " + wave.frequency + ", " + wm + ")");
         }
 
+        // Deployable turret / mine: the projectile repeatedly FIRES another
+        // weapon while it is alive, and can damage things touching it. The
+        // game has no while-alive hook (subEmitter is death-only), so this
+        // attaches a ForgeTurret component that ticks itself. Pair it with
+        // rangeData.slowDown + lifetimeData to get a shot that glides to a
+        // stop, works for a few seconds, then vanishes.
+        private static void ApplyTurret(
+            WeaponData weapon,
+            JObject root,
+            string fileName)
+        {
+            if (!((bool?)root["turret"] ?? false))
+                return;
+
+            string turretWeapon = (string)root["turretWeapon"];
+            if (string.IsNullOrEmpty(turretWeapon))
+            {
+                Log.LogWarning(
+                    fileName + ": \"turret\" is on but no \"turretWeapon\" " +
+                    "was given - ignored.");
+                return;
+            }
+
+            // A turret that fires ITSELF multiplies without bound.
+            if (string.Equals(turretWeapon, weapon.name,
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                Log.LogWarning(
+                    fileName + ": turretWeapon '" + turretWeapon + "' is " +
+                    "this weapon itself - ignored (it would spawn turrets " +
+                    "endlessly).");
+                return;
+            }
+
+            var pw = weapon as ProjectileWeaponData;
+            if (pw == null || pw.projectilePrefab == null)
+            {
+                Log.LogWarning(
+                    fileName + ": turret only works on projectile weapons - " +
+                    "ignored.");
+                return;
+            }
+
+            // usePhysics fires a PhysicsProjectile, a different class that
+            // this component's Projectile lookup wouldn't find.
+            if (pw.usePhysics)
+            {
+                Log.LogWarning(
+                    fileName + ": turret is not supported on usePhysics " +
+                    "projectiles - ignored.");
+                return;
+            }
+
+            // An orbit weapon snapshots its orb visual BEFORE this runs, so
+            // the two can't be combined - say so instead of silently
+            // dropping the turret.
+            ForgeOrbit.Config orbitCfg;
+            if (ForgeOrbit.TryGet(weapon, out orbitCfg))
+            {
+                Log.LogWarning(
+                    fileName + ": turret can't be combined with orbit - " +
+                    "the turret is ignored on an orbit weapon.");
+                return;
+            }
+
+            // The carrier MUST be able to die, or every shot leaves a
+            // permanent turret behind (clones are HideAndDontSave, so one
+            // would even survive into the next run).
+            var lt = pw.lifetimeData;
+            bool diesByRange = pw.rangeData.enabled && pw.rangeData.destroyWhenReached;
+            if (!lt.enabled && !diesByRange && !pw.impactBehaviour.enabled)
+            {
+                lt.enabled = true;
+                if (lt.time <= 0f)
+                    lt.time = 8f;
+                pw.lifetimeData = lt;
+                Log.LogWarning(
+                    fileName + ": turret has no way to expire - forcing " +
+                    "lifetimeData " + lt.time + "s so it can't live forever.");
+            }
+
+            GameObject clone = VisualCustomizer.ClonePrefab(
+                pw.projectilePrefab.gameObject);
+
+            var comp = clone.GetComponentInChildren<Projectile>(true);
+            if (comp == null)
+            {
+                Log.LogWarning(fileName + ": turret - no Projectile on prefab.");
+                return;
+            }
+
+            // Must live on the Projectile's own GameObject - the component
+            // reads its Owner/Damage via GetComponent<Projectile>().
+            var turret = comp.GetComponent<ForgeTurret>();
+            if (turret == null)
+                turret = comp.gameObject.AddComponent<ForgeTurret>();
+
+            turret.weaponName = turretWeapon;
+            turret.interval = (float?)root["turretInterval"] ?? 0.5f;
+            turret.rotationSpeed = (float?)root["turretRotation"] ?? 90f;
+            turret.startAngle = (float?)root["turretStartAngle"] ?? 0f;
+            turret.searchRange = (float?)root["turretRange"] ?? 12f;
+            turret.startDelay = (float?)root["turretDelay"] ?? 0f;
+            turret.contactDamage = (bool?)root["turretContactDamage"] ?? true;
+            turret.contactRadius = (float?)root["turretContactRadius"] ?? 0.5f;
+            turret.contactRepeatDelay =
+                (float?)root["turretContactDelay"] ?? 0.4f;
+
+            string aim =
+                ((string)root["turretAim"] ?? "rotate")
+                    .Trim().ToLowerInvariant();
+            turret.aimMode = (aim == "nearest" || aim == "enemy" ||
+                              aim == "target")
+                ? ForgeTurret.AimNearest
+                : ForgeTurret.AimRotate;
+
+            string dirn =
+                ((string)root["turretDirection"] ?? "cw")
+                    .Trim().ToLowerInvariant();
+            turret.clockwise = !(dirn == "ccw" ||
+                dirn == "counterclockwise" || dirn == "counter");
+
+            // Keep the turret PARKED. Without piercing, touching an enemy
+            // runs the game's impact path, which snaps the projectile onto
+            // the hit point - the "hovering" disc gets dragged around by
+            // whatever bumps it. Piercing makes enemy contact a pass-
+            // through instead (ground still collides, so it can still
+            // bounce off walls). The repeat delays keep the engine's own
+            // knockback from firing every physics step.
+            var pd = pw.piercingData;
+            if (!pd.enabled)
+            {
+                pd.enabled = true;
+                pd.damageRepeatDelay =
+                    Mathf.Max(pd.damageRepeatDelay, turret.contactRepeatDelay);
+                pd.knockBackRepeatDelay =
+                    Mathf.Max(pd.knockBackRepeatDelay, turret.contactRepeatDelay);
+                pw.piercingData = pd;
+            }
+
+            pw.projectilePrefab = comp;
+
+            Log.LogInfo(
+                fileName + ": turret (" + aim + ", every " +
+                turret.interval + "s, fires '" + turretWeapon + "'" +
+                (turret.aimMode == ForgeTurret.AimRotate
+                    ? ", " + turret.rotationSpeed + " deg/s " +
+                      (turret.clockwise ? "cw" : "ccw")
+                    : "") + ")");
+        }
+
         // Wires up an "orbit" weapon: projectiles that circle the player.
         // A fully custom behaviour (ForgeOrbit + ForgeOrbitController +
         // ForgeOrbitPatch) - the game has no orbital mechanic. All knobs
@@ -926,11 +1088,46 @@ namespace WeaponForge
                 dirn == "counterclockwise" || dirn == "counter");
 
             cfg.radius = (float?)root["orbitRadius"] ?? 3f;
+
+            // Concentric rings.
+            cfg.rings = (int?)root["orbitRings"] ?? 1;
+            if (cfg.rings < 1) cfg.rings = 1;
+            cfg.ringSpacing = (float?)root["orbitRingSpacing"] ?? 1.5f;
+            cfg.ringAlternate = (bool?)root["orbitRingAlternate"] ?? false;
+            cfg.ringSpeedStep = (float?)root["orbitRingSpeedStep"] ?? 1f;
+
+            string ringMode =
+                ((string)root["orbitRingMode"] ?? "split")
+                    .Trim().ToLowerInvariant();
+            cfg.ringsFullCount = (ringMode == "full" || ringMode == "each" ||
+                                  ringMode == "perring");
+
+            // "auto" (default) staggers each ring by half a slot so the orbs
+            // interleave; a number sets the offset per ring in degrees.
+            JToken staggerTok = root["orbitRingStagger"];
+            if (staggerTok == null)
+            {
+                cfg.ringStagger = -1f;
+            }
+            else
+            {
+                string st = staggerTok.ToString().Trim().ToLowerInvariant();
+                if (st == "auto" || st == "")
+                    cfg.ringStagger = -1f;
+                else if (st == "aligned" || st == "none")
+                    cfg.ringStagger = 0f;
+                else
+                    cfg.ringStagger = (float?)staggerTok ?? -1f;
+            }
             cfg.speed = (float?)root["orbitSpeed"] ?? 120f;
             cfg.hitRadius = (float?)root["orbitHitRadius"] ?? 0.6f;
             cfg.contactDamage = (bool?)root["orbitContactDamage"] ?? true;
+            cfg.weaponEffects = (bool?)root["orbitWeaponEffects"] ?? true;
             cfg.damageRepeatDelay = (float?)root["orbitDamageRepeatDelay"] ?? 0.3f;
             cfg.blockProjectiles = (bool?)root["orbitBlockProjectiles"] ?? false;
+            // Only pay for enemy-projectile tracking if something wants it.
+            if (cfg.blockProjectiles)
+                ForgeProjectileTracker.Enabled = true;
             cfg.pushForce = (float?)root["orbitPushForce"] ?? 0f;
             cfg.pulseAmount = (float?)root["orbitPulse"] ?? 0f;
             cfg.pulseSpeed = (float?)root["orbitPulseSpeed"] ?? 1f;
