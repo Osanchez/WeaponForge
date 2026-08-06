@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -71,6 +71,15 @@ namespace WeaponForge
         // the first time).
         public static void BuildAll()
         {
+            // Custom art has to exist before any weapon asks for it by
+            // name. Loads once; cheap when the folder is empty.
+            ForgeSpriteLibrary.LoadAll();
+
+            // Same for custom audio. WAV clips are ready immediately; ogg/mp3
+            // decode in the background and attach themselves to their
+            // registered Sfx when they land, so weapon building never waits.
+            ForgeSoundLibrary.LoadAll();
+
             string folder = WeaponsFolder();
 
             if (!Directory.Exists(folder))
@@ -104,6 +113,11 @@ namespace WeaponForge
                         Path.GetFileName(file) + ": " + e);
                 }
             }
+
+            // Now that every weapon exists, hook up the subEmitter
+            // references. Doing this last means a sub can live in a file
+            // that sorts after the weapon using it.
+            WeaponBuilder.ResolvePendingSubEmitters();
         }
 
         // Make sure every built module is present in the registry the

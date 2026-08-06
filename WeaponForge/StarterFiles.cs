@@ -305,6 +305,67 @@ projectileScale  size multiplier. Projectiles: bigger shot + matching
                  hit radius. Hitscan: beam thickness. (Minions: not
                  scaled - only recolored - to avoid breaking them.)
 
+CUSTOM ART (inside ""weapon"")
+-----------------------------
+projectileSprite  use art YOU drew. Put a PNG in the ""sprites"" folder
+                 next to the DLL and name it here. Use the Sprite Sheet
+                 Builder.html tool to cut a sheet up visually - it
+                 writes the .json the mod reads. NOTE the name is of a
+                 thing INSIDE the sheet, not the file: ""petrolbm"" is
+                 one still frame, ""petrolbmAnim"" is the animation.
+projectileSpriteOnly  true if your sprite appears drawn ON TOP of the
+                 old one - it switches off the template's own glow and
+                 trail particles so only your art shows.
+projectileGlow   false if your art looks washed out / recolored. Some
+                 ammo renders through an emissive shader that blows
+                 detail toward white; false swaps in the plain one.
+trail            a streak behind the shot, made of sprite puffs (the
+                 game has no ribbon trails - every trail in PUNK is a
+                 particle system dropping puffs per unit travelled).
+                 Shorthand: true adds a stock one, false removes the
+                 template's, ""myPuff"" makes it out of that sprite.
+                 Full form:
+                   ""trail"": { ""sprite"": ""myPuffAnim"",
+                              ""color"": ""orange"", ""perUnit"": 20,
+                              ""lifetime"": 0.3, ""size"": 0.8,
+                              ""sizeEnd"": 0, ""fade"": true }
+                 perUnit is density, lifetime is how long the streak
+                 is (stock 0.025 is very short - try 0.2-0.5), sizeEnd
+                 0 tapers it to a point. An ""...Anim"" name makes every
+                 puff play the whole flipbook. See HOW TO MAKE
+                 WEAPONS.txt for the rest.
+
+CUSTOM SOUNDS
+-------------
+Every sound field takes EITHER a game sfx GUID OR the name of an
+audio file you supply. Put a file in a ""sounds"" folder next to the
+DLL and use its file name without the extension:
+
+  sounds/mylaser.wav   ->   ""shootSfx"": ""mylaser""
+
+Slots: shootSfx (per volley), reloadSfx, startSfx,
+continousShootSfx (loops while held - game's own typo, one 'u'),
+releaseSfx, warmupSfx (loops), and explosion.sfx.
+
+.wav is best - decoded directly, always works, ready instantly.
+.ogg and .aiff work. .mp3 usually works but depends on the
+platform's decoder; convert to .wav if it stays silent.
+
+The clip is registered as a REAL game sound, so 3D positioning, the
+SFX volume slider and the mixer all apply to it. Settings you don't
+specify are copied from the sound you replaced. continousShootSfx
+and warmupSfx are forced to loop, because the game stops those by
+handle.
+
+Too loud? Very likely - exported audio is hotter than the game's.
+Add a .json with the SAME NAME as the audio file:
+  { ""volume"": 0.6 }
+It also takes looping, is3d, priority, repeatMinDelay,
+cancelPrevious, and variants for random per-shot selection:
+  { ""variants"": [""shot1.wav"", ""shot2.wav""] }
+There is no pitch control - bake it into the files.
+Full details in sounds/README.txt, written on first run.
+
 MODULE EXTRAS (inside ""module"")
 --------------------------------
 icon          module card icon sprite name, e.g. ""HUD_GridTiles_8""
@@ -343,7 +404,8 @@ damage: { amount, damageType }   fireRate     warmupTime
 burstSize    burstDelay          projectileCount   spread
 angleVariance    angleOffset     knockbackForce    pushForce
 resourceUsed (e.g. ""Resource White"")   cost
-barrelLength     shootSfx/startSfx/... (must match existing game sfx ids)
+barrelLength     shootSfx/startSfx/... (a game sfx GUID, or the name
+                 of your own audio file - see CUSTOM SOUNDS below)
 explosion: { radius, damages: [ { amount, damageType } ] }
 discharge: { damage: {...}, chainLength, subSystem: ""Player"" }
 aimAssistData: { enabled, maxAngle, isPredictive }
@@ -370,6 +432,52 @@ wave:true + waveAngle + waveFrequency + waveMode (single/synced/helix)
    follow the curve. See ExampleWaveBeam.json.
 wobble:true + wobbleAngle + wobbleFrequency
    easy alias for the game's organic movementNoiseData wander (above).
+
+RICOCHET (top-level keys, plain projectile weapons)
+---------------------------------------------------
+ricochet: true, or { targets, bounces, seek, seekRange, seekCone,
+   scatter, speedMultiplier, damageMultiplier, pierceWins }
+   Bullets that BOUNCE. The bouncing is the game's own, and damage is
+   applied BEFORE the bounce, so a shot ricocheting off an enemy has
+   already hurt it. What the game has no concept of is a bounce COUNT -
+   a stock bouncer bounces forever - so that is what this adds.
+   targets: ""terrain"" (default) / ""enemies"" / ""both"" / ""none"".
+   bounces: a number, or ""infinite"". Default 3. With infinite and no
+     rangeData/lifetimeData the shots never die - the mod warns.
+   seek: true redirects each bounce at the nearest enemy instead of
+     mirroring off the surface, so it reliably hits something else.
+   scatter: degrees of random angle per bounce - also the escape for a
+     shot trapped between two parallel walls.
+   speedMultiplier / damageMultiplier: fraction kept per bounce
+     (1 = arcade, the default).
+   pierceWins: only matters if piercingData is also on. The game checks
+     piercing first and returns early, so a pierced enemy is never
+     bounced. false (default) turns piercing off; true keeps it and
+     ricochets off terrain only.
+   When the bounces run out the shot runs its own impactBehaviour and is
+   destroyed - so it explodes if you set spawnExplosion, else vanishes.
+   Not for usePhysics shots (no bounce code exists on those).
+
+HOMING (top-level keys, plain projectile weapons)
+-------------------------------------------------
+homing: true, or { turnRate, range, cone, delay, maxTurn, retarget,
+   predict, faceTravel }
+   Bullets that CURVE onto enemies. The game's own ""homingData"" only
+   works on lobbed/usePhysics shots - ProjectileWeapon assigns it inside
+   that branch only - so a fast straight bullet like the Popper's needs
+   this instead. It steers by rotating the shot's velocity, and because
+   the projectile's collision sweep is rebuilt from that velocity every
+   frame, THE HITBOX CURVES TOO.
+   turnRate (deg/sec) is the main dial, but what you see is the turn
+   RADIUS = speed / turnRate: at projectileSpeed 30, turnRate 180 gives
+   a ~9.5-unit radius, 360 a ~4.8 hard chase, 90 an almost-straight ~19.
+   The mod logs the radius for your numbers and warns when it is too wide
+   to notice.
+   For a BEAM-LIKE STREAM: high fireRate + a long segment sprite. Spacing
+   is projectileSpeed / fireRate, and at 20 px per world unit a speed 30
+   / fireRate 20 gun spaces shots 1.5 units (30 px) apart. Add
+   piercingData so it doesn't stop on the first enemy.
+   Not for usePhysics weapons (the log points you at homingData).
 
 SPIRAL ORBIT (top-level keys, on an orbit weapon)
 -------------------------------------------------

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace WeaponForge
@@ -20,6 +20,12 @@ namespace WeaponForge
             public Projectile proj;
             public bool alive = true;
             public float regenAt;
+
+            // Terrain digging: last position (for a travel direction, used as
+            // the "velocity" of the fake hit) and a per-orb cell cooldown.
+            public Vector3 lastPos;
+            public bool hasLastPos;
+            public float nextTerrainHit;
 
             // Spiral state (unused when cfg.spiral == Off).
             public float cycleStart;   // when this spiral-out cycle began
@@ -90,6 +96,7 @@ namespace WeaponForge
                 {
                     orbs[i].cycleStart = Time.time;
                     orbs[i].hasPrev = false;
+                    orbs[i].hasLastPos = false;
                     orbs[i].launched = false;
                 }
             }
@@ -305,10 +312,18 @@ namespace WeaponForge
                 if (cfg.blockProjectiles)
                     BlockAt(pos);
 
+                // One terrain query serves both digging and destroy-on-terrain.
+                bool hitTerrain = false;
+                if (cfg.damageTerrain || cfg.destroyOnTerrain)
+                    hitTerrain = TerrainAt(orb, pos);
+
+                orb.lastPos = pos;
+                orb.hasLastPos = true;
+
                 bool destroy = false;
                 if (cfg.destroyOnEnemy && hitEnemy)
                     destroy = true;
-                if (!destroy && cfg.destroyOnTerrain && TerrainAt(pos))
+                if (!destroy && cfg.destroyOnTerrain && hitTerrain)
                     destroy = true;
 
                 if (destroy)
@@ -446,11 +461,30 @@ namespace WeaponForge
             if (!cfg.weaponEffects)
                 return;
 
-            SpawnWeaponExplosion(pos);
+            SpawnWeaponExplosion(orb, pos);
             SpawnWeaponDischarge(pos);
         }
 
-        private void SpawnWeaponExplosion(Vector3 pos)
+        private void SpawnWeaponExplosion(Orb orb, Vector3 pos)
+        {
+            // Orbs bypass Projectile.SpawnExplosion, so the tint
+            // handshake has to be opened by hand here or an orbit
+            // weapon would be the one place explosionColor did
+            // nothing. The orb art is a clone of the weapon's
+            // projectile prefab, so it carries the marker.
+            ForgeExplosionTint.Begin(
+                (orb != null) ? orb.proj : null);
+            try
+            {
+                SpawnWeaponExplosionInner(pos);
+            }
+            finally
+            {
+                ForgeExplosionTint.End();
+            }
+        }
+
+        private void SpawnWeaponExplosionInner(Vector3 pos)
         {
             Explosion explosion = weapon.Explosion;
             if (explosion.damages == null || explosion.damages.Count == 0 ||
@@ -484,9 +518,79 @@ namespace WeaponForge
             catch { }
         }
 
-        private bool TerrainAt(Vector3 pos)
+        // Is this orb touching terrain? Also does the digging when
+        // damageTerrain is on, rate-limited per orb so an orb parked against a
+        // wall chews at a sane pace instead of once per frame.
+        private bool TerrainAt(Orb orb, Vector3 pos)
         {
-            return Physics2D.OverlapCircle(pos, cfg.hitRadius, groundFilter, buffer) > 0;
+            int n = Physics2D.OverlapCircle(pos, cfg.hitRadius, groundFilter, buffer);
+            if (n <= 0)
+                return false;
+
+            if (cfg.damageTerrain && Time.time >= orb.nextTerrainHit)
+            {
+                orb.nextTerrainHit =
+                    Time.time + Mathf.Max(0.02f, cfg.terrainRepeatDelay);
+                // One collider only - a real shot hits one wall, not every
+                // level segment overlapping the orb.
+                DigTerrain(orb, buffer[0], pos);
+            }
+            return true;
+        }
+
+        // Hand the level the same hit a real projectile would deliver, so the
+        // cell takes damage / is destroyed / catches fire / shakes, and the
+        // cell's own resistances still decide whether it actually breaks.
+        private void DigTerrain(Orb orb, Collider2D col, Vector3 pos)
+        {
+            if (col == null || weapon == null || orb == null || orb.proj == null)
+                return;
+
+            IProjectileListener listener = col.GetComponent<IProjectileListener>();
+            if (listener == null)
+                listener = col.GetComponentInParent<IProjectileListener>();
+            if (listener == null)
+                return;
+
+            // The level derives the cell from point - normal * 0.5, so we need
+            // a surface point plus a normal pointing back out at the orb.
+            Vector2 p = pos;
+            Vector2 point = p;
+            Vector2 normal = Vector2.zero;   // zero => the cell we're inside
+            Vector2 surface = col.ClosestPoint(p);
+            Vector2 outward = p - surface;
+            float d = outward.magnitude;
+            if (d > 0.001f && d < cfg.hitRadius + 1f)
+            {
+                point = surface;
+                normal = outward / d;
+            }
+
+            Projectile pr = orb.proj;
+            if (unit != null)
+                pr.Owner = unit;
+            pr.Damage = weapon.Damage;
+            pr.Burn = weapon.Burn;
+            pr.PushForce = (cfg.pushForce > 0f) ? cfg.pushForce : weapon.PushForce;
+            // Drives the cell-shake direction only.
+            pr.Velocity = (orb.hasLastPos && Time.deltaTime > 0f)
+                ? (Vector2)((pos - orb.lastPos) / Time.deltaTime)
+                : Vector2.zero;
+
+            // These two decide whether burn lands on contact (the level checks
+            // ShouldApplyBurnOnContact), so keep the weapon's own answer.
+            var pw = weapon as ProjectileWeapon;
+            if (pw != null)
+            {
+                pr.ImpactBehaviour = pw.ImpactBehaviour;
+                pr.LifetimeData = pw.LifetimeData;
+            }
+
+            try
+            {
+                listener.ProjectileCollided(pr, point, normal);
+            }
+            catch { }
         }
 
         private void PushAt(Vector3 pos, Vector3 center)
@@ -552,9 +656,11 @@ namespace WeaponForge
         {
             orb.alive = true;
             orb.regenAt = 0f;
+            orb.nextTerrainHit = 0f;
             // Restart its spiral cleanly from the inner radius.
             orb.launched = false;
             orb.hasPrev = false;
+            orb.hasLastPos = false;
             orb.cycleStart = Time.time;
         }
 

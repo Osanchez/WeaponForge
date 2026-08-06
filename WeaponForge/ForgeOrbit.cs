@@ -71,6 +71,13 @@ namespace WeaponForge
             public float flingReach = 4f;     // extra radius during a fling
             public float flingDuration = 0.35f;
 
+            // Terrain. Orbs are not real projectiles - they have no
+            // collision layer of their own - so digging is opt-in and routed
+            // through the level's own projectile listener, exactly like a
+            // normal shot hitting a wall (cell damage, shake, burn).
+            public bool damageTerrain;
+            public float terrainRepeatDelay = 0.15f;  // per orb, sec per cell
+
             // Destructible orbs + regeneration.
             public bool destroyOnEnemy;       // orb dies when it hits an enemy
             public bool destroyOnTerrain;     // orb dies when it hits terrain

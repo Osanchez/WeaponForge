@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -16,6 +16,72 @@ namespace WeaponForge
     {
         private static readonly ManualLogSource Log =
             BepInEx.Logging.Logger.CreateLogSource("WeaponForge");
+
+        // A subEmitter names another weapon, which may well be one of YOUR
+        // weapons sitting in a file that sorts later in the folder. Resolving
+        // it during the build made success depend on filename order -
+        // "cocktail.json" sorts before "cocktailFlame.json", so the cocktail
+        // looked for a flame that did not exist yet and silently got none.
+        // So the name is parked here and resolved once every file is built,
+        // which also lets chains of any depth work regardless of order.
+        private class PendingSub
+        {
+            public WeaponData weapon;
+            public string subName;
+            public string fileName;
+        }
+
+        private static readonly List<PendingSub> _pendingSubs =
+            new List<PendingSub>();
+
+        public static void ResolvePendingSubEmitters()
+        {
+            foreach (PendingSub p in _pendingSubs)
+            {
+                if (p.weapon == null || string.IsNullOrEmpty(p.subName))
+                    continue;
+
+                // Accept the bare name too: a Forge weapon called "Flame"
+                // becomes the asset "Forge Weapon Flame", and expecting
+                // people to know that prefix is a needless trip hazard.
+                var sub = JsonFieldMapper.FindAsset(
+                    typeof(WeaponData), p.subName) as WeaponData;
+
+                if (sub == null && !p.subName.StartsWith("Forge Weapon "))
+                {
+                    sub = JsonFieldMapper.FindAsset(
+                        typeof(WeaponData),
+                        "Forge Weapon " + p.subName) as WeaponData;
+                }
+
+                if (sub == null)
+                {
+                    Log.LogWarning(
+                        p.fileName + ": subEmitter '" + p.subName +
+                        "' was not found, so this weapon fires no sub. " +
+                        "For one of your own weapons use its \"name\" (or " +
+                        "\"Forge Weapon <name>\"); for a stock one use the " +
+                        "asset name like \"Weapon Caps Flame\".");
+                    continue;
+                }
+
+                if (sub == p.weapon)
+                {
+                    Log.LogWarning(
+                        p.fileName + ": subEmitter points at this same " +
+                        "weapon - that would recurse forever, so it is " +
+                        "ignored.");
+                    continue;
+                }
+
+                p.weapon.subEmitter = sub;
+
+                Log.LogInfo(
+                    p.fileName + ": subEmitter -> '" + sub.name + "'.");
+            }
+
+            _pendingSubs.Clear();
+        }
 
         // Returns null if the weapon can't/shouldn't be built (already
         // built, missing required keys, or missing assets).
@@ -159,6 +225,17 @@ namespace WeaponForge
             string projectileColor = null;
             float? projectileScale = null;
             float rainbowSpeed = 0.5f;
+            string muzzleColor = null;
+            float muzzleRgbSpeed = 0.5f;
+            string projectileSprite = null;
+            string subEmitterName = null;
+            string explosionColor = null;
+            float explosionRgbSpeed = 0.5f;
+            bool spriteOnly = false;
+            string projectileMaterial = null;
+            bool? projectileGlow = null;
+            ForgeTrail.Spec trailSpec = null;
+            ForgeBeam.Spec beamSpec = null;
 
             // Burn options (enemy burn tick-rate + burn color) - not real
             // weapon fields, so pulled out and turned into module effects.
@@ -174,6 +251,12 @@ namespace WeaponForge
             Resource originalResourceUsed = weapon.resourceUsed;
             Resource originalDamageType = weapon.damage.damageType;
 
+            // The template's own sound ids, captured BEFORE the mapper can
+            // overwrite them. A custom sound inherits its volume, mixer group
+            // and looping from whatever it is replacing, so we need to know
+            // what was in each slot to begin with.
+            SfxSlots originalSfx = CaptureSfx(weapon);
+
             if (weaponJson != null)
             {
                 // Pull custom visual aliases out before the generic
@@ -187,6 +270,34 @@ namespace WeaponForge
                 rainbowSpeed =
                     (float?)weaponJson["rainbowSpeed"] ?? 0.5f;
 
+                muzzleColor = (string)weaponJson["muzzleColor"];
+                muzzleRgbSpeed =
+                    (float?)weaponJson["muzzleRgbSpeed"] ?? 0.5f;
+
+                projectileSprite =
+                    (string)weaponJson["projectileSprite"];
+
+                projectileMaterial =
+                    (string)weaponJson["projectileMaterial"];
+                projectileGlow = (bool?)weaponJson["projectileGlow"];
+
+                // Held back from the mapper and resolved after every file
+                // is built - see ResolvePendingSubEmitters.
+                subEmitterName = (string)weaponJson["subEmitter"];
+
+                explosionColor = (string)weaponJson["explosionColor"];
+                explosionRgbSpeed =
+                    (float?)weaponJson["explosionRgbSpeed"] ?? 0.5f;
+
+                spriteOnly =
+                    (bool?)weaponJson["projectileSpriteOnly"] ?? false;
+
+                trailSpec =
+                    ForgeTrail.Parse(weaponJson["trail"], fileName);
+
+                beamSpec =
+                    ForgeBeam.Parse(weaponJson["beam"], fileName);
+
                 burnTickRateTok = weaponJson["burnTickRate"];
                 burnColor = (string)weaponJson["burnColor"];
                 burnRgbSpeed =
@@ -197,6 +308,17 @@ namespace WeaponForge
                 weaponJson.Remove("projectileColor");
                 weaponJson.Remove("projectileScale");
                 weaponJson.Remove("rainbowSpeed");
+                weaponJson.Remove("muzzleColor");
+                weaponJson.Remove("muzzleRgbSpeed");
+                weaponJson.Remove("projectileSprite");
+                weaponJson.Remove("projectileMaterial");
+                weaponJson.Remove("projectileGlow");
+                weaponJson.Remove("subEmitter");
+                weaponJson.Remove("explosionColor");
+                weaponJson.Remove("explosionRgbSpeed");
+                weaponJson.Remove("projectileSpriteOnly");
+                weaponJson.Remove("trail");
+                weaponJson.Remove("beam");
                 weaponJson.Remove("burnTickRate");
                 weaponJson.Remove("burnColor");
                 weaponJson.Remove("burnRgbSpeed");
@@ -206,6 +328,23 @@ namespace WeaponForge
                     weapon,
                     weaponJson,
                     name + ".weapon");
+
+                // Any sound field that now names a file from the "sounds"
+                // folder gets swapped for a real registered Sfx id. Done
+                // AFTER the mapper because the sfx fields are ordinary
+                // strings - the mapper writes them like any other field, and
+                // we only reinterpret what it wrote.
+                ApplyCustomSounds(weapon, originalSfx, fileName);
+
+                if (!string.IsNullOrEmpty(subEmitterName))
+                {
+                    _pendingSubs.Add(new PendingSub
+                    {
+                        weapon = weapon,
+                        subName = subEmitterName.Trim(),
+                        fileName = fileName
+                    });
+                }
             }
 
             // A weapon that fires from a SHARED resource (e.g. Money)
@@ -259,6 +398,20 @@ namespace WeaponForge
                 projectileScale,
                 rainbowSpeed,
                 target,
+                fileName,
+                projectileSprite,
+                projectileMaterial,
+                projectileGlow,
+                explosionColor,
+                explosionRgbSpeed,
+                spriteOnly,
+                trailSpec,
+                beamSpec);
+
+            ApplyMuzzleColor(
+                weapon,
+                muzzleColor,
+                muzzleRgbSpeed,
                 fileName);
 
             ApplyBurn(
@@ -278,6 +431,15 @@ namespace WeaponForge
             ApplyPierce(weapon, root, fileName);
 
             ApplyWave(weapon, root, fileName);
+
+            // After wave: both clone the projectile prefab and both attach a
+            // FixedUpdate-driven steerer, so running homing second means it
+            // lands on the clone wave already made rather than a stale one.
+            ApplyHoming(weapon, root, fileName);
+
+            // Last of the three prefab-cloning motion features, so it lands on
+            // the clone the others have already made.
+            ApplyRicochet(weapon, root, fileName);
 
             ApplyTurret(weapon, root, fileName);
 
@@ -471,10 +633,40 @@ namespace WeaponForge
             float? scale,
             float rainbowSpeed,
             string target,
-            string fileName)
+            string fileName,
+            string projectileSpriteName,
+            string projectileMaterialName,
+            bool? projectileGlow,
+            string explosionColorText,
+            float explosionRgbSpeed,
+            bool spriteOnly,
+            ForgeTrail.Spec trailSpec,
+            ForgeBeam.Spec beamSpec)
         {
             Color? color = null;
             bool rainbow = false;
+
+            // Custom art from the "sprites" folder. Its own namespace, so
+            // the name can never clash with the game's ~450 atlas sprites.
+            ForgeSpriteLibrary.Art customArt = null;
+            if (!string.IsNullOrEmpty(projectileSpriteName))
+            {
+                if (!ForgeSpriteLibrary.TryGetArt(
+                        projectileSpriteName, out customArt))
+                {
+                    string known = ForgeSpriteLibrary.Count > 0
+                        ? " Loaded sprites: " +
+                          string.Join(", ",
+                              System.Linq.Enumerable.ToArray(
+                                  ForgeSpriteLibrary.Names))
+                        : " No custom sprites loaded at all - is there a " +
+                          "PNG in the 'sprites' folder next to the DLL?";
+
+                    Log.LogWarning(
+                        fileName + ": projectileSprite '" +
+                        projectileSpriteName + "' was not found." + known);
+                }
+            }
 
             if (!string.IsNullOrEmpty(colorText))
             {
@@ -502,8 +694,66 @@ namespace WeaponForge
                 }
             }
 
+            // Resolve the render material. "glow" is the plain-English
+            // switch between the game's own two sprite materials; an
+            // explicit name is the escape hatch for any other one.
+            string materialName = projectileMaterialName;
+            if (string.IsNullOrEmpty(materialName) && projectileGlow.HasValue)
+            {
+                materialName = projectileGlow.Value
+                    ? "EmissiveUnlitSprite"
+                    : "SpriteUnlitAA";
+            }
+
+            Material customMaterial = null;
+            if (!string.IsNullOrEmpty(materialName))
+            {
+                customMaterial = JsonFieldMapper.FindAsset(
+                    typeof(Material), materialName) as Material;
+
+                if (customMaterial == null)
+                {
+                    Log.LogWarning(
+                        fileName + ": material '" + materialName +
+                        "' was not found - the shot keeps the template's. " +
+                        "The two that matter are 'SpriteUnlitAA' (draws art " +
+                        "as painted) and 'EmissiveUnlitSprite' (glows).");
+                }
+            }
+
+            // Explosion tint. The game gives an explosion no colour of its
+            // own - the burst comes from damages[0].damageType - so this is
+            // carried on the shot and applied as the blast spawns.
+            ForgeExplosionColor explosionTint = null;
+            if (!string.IsNullOrEmpty(explosionColorText))
+            {
+                bool exRainbow = VisualCustomizer.IsRainbow(explosionColorText);
+                Color exColor = Color.white;
+
+                if (exRainbow ||
+                    VisualCustomizer.TryParseColor(explosionColorText, out exColor))
+                {
+                    explosionTint = new ForgeExplosionColor
+                    {
+                        color = exColor,
+                        rainbow = exRainbow,
+                        rgbSpeed = explosionRgbSpeed
+                    };
+                }
+                else
+                {
+                    Log.LogWarning(
+                        fileName + ": explosionColor '" + explosionColorText +
+                        "' is not a hex value, colour name, ColorAsset or " +
+                        "\"rainbow\" - ignored.");
+                }
+            }
+
             bool hasVisual =
-                color.HasValue || rainbow || scale.HasValue;
+                color.HasValue || rainbow || scale.HasValue ||
+                customArt != null || customMaterial != null ||
+                explosionTint != null || spriteOnly || trailSpec != null ||
+                beamSpec != null;
 
             int fromLayer = VisualCustomizer.FactionFromLayer(target);
             int toLayer = VisualCustomizer.FactionToLayer(target);
@@ -518,7 +768,9 @@ namespace WeaponForge
                             ? projectileData.projectilePrefab.gameObject
                             : null,
                         color, rainbow, rainbowSpeed, scale,
-                        fromLayer, toLayer, hasVisual);
+                        fromLayer, toLayer, hasVisual, customArt,
+                        customMaterial, explosionTint, spriteOnly,
+                        trailSpec);
 
                 if (newProjectile != null)
                 {
@@ -541,7 +793,9 @@ namespace WeaponForge
                             projectileData
                                 .physicsProjectilePrefab.gameObject,
                             color, rainbow, rainbowSpeed, scale,
-                            fromLayer, toLayer, hasVisual);
+                            fromLayer, toLayer, hasVisual, customArt,
+                            customMaterial, explosionTint, spriteOnly,
+                            trailSpec);
 
                     if (pp != null)
                     {
@@ -575,6 +829,12 @@ namespace WeaponForge
                     var visual =
                         clone.GetComponent<HitscanWeaponVisual>();
 
+                    // Art before the tint, same order as the projectile path:
+                    // the tint writes the renderer's colour, so it has to land
+                    // on whichever sprite ends up sitting there.
+                    if (beamSpec != null)
+                        ForgeBeam.Apply(visual, beamSpec);
+
                     Paint(clone, color, rainbow, rainbowSpeed);
 
                     if (scale.HasValue)
@@ -597,7 +857,8 @@ namespace WeaponForge
                             ? physicsData.projectilePrefab.gameObject
                             : null,
                         color, rainbow, rainbowSpeed, scale,
-                        fromLayer, toLayer, hasVisual);
+                        fromLayer, toLayer, hasVisual,
+                        trailSpec: trailSpec);
 
                 if (pp != null)
                 {
@@ -648,7 +909,12 @@ namespace WeaponForge
             float? scale,
             int fromLayer,
             int toLayer,
-            bool hasVisual)
+            bool hasVisual,
+            ForgeSpriteLibrary.Art customArt = null,
+            Material customMaterial = null,
+            ForgeExplosionColor explosionTint = null,
+            bool spriteOnly = false,
+            ForgeTrail.Spec trailSpec = null)
         {
             if (original == null)
                 return null;
@@ -662,6 +928,37 @@ namespace WeaponForge
 
             GameObject clone =
                 VisualCustomizer.ClonePrefab(original);
+
+            // Art first, then colour: the tint lands on the renderer, so it
+            // applies to whatever sprite is sitting there.
+            if (customArt != null)
+                VisualCustomizer.ApplyArt(clone, customArt);
+
+            // After the swap, so the renderer we just wrote to is the one
+            // kept and the template's glow/trail extras go quiet.
+            if (spriteOnly)
+                VisualCustomizer.IsolateSprite(clone);
+
+            // Before the tint: the tint writes sr.color, the material
+            // decides how that colour is then shaded.
+            if (customMaterial != null)
+                VisualCustomizer.SwapMaterial(clone, customMaterial);
+
+            // After IsolateSprite, which switches off every child particle
+            // system including any trail. ForgeTrail writes emission and the
+            // renderer back on explicitly, so "one sprite, plus a trail" is a
+            // legal combination and the two features cannot fight.
+            if (trailSpec != null)
+                ForgeTrail.Apply(clone, trailSpec);
+
+            // A marker the explosion patch reads off the live shot.
+            if (explosionTint != null)
+            {
+                var tag = clone.AddComponent<ForgeExplosionColor>();
+                tag.color = explosionTint.color;
+                tag.rainbow = explosionTint.rainbow;
+                tag.rgbSpeed = explosionTint.rgbSpeed;
+            }
 
             Paint(clone, color, rainbow, rainbowSpeed);
 
@@ -689,6 +986,207 @@ namespace WeaponForge
             {
                 VisualCustomizer.Recolor(clone, color.Value);
             }
+        }
+
+        // The seven sound slots a weapon has, as they stood on the template.
+        private struct SfxSlots
+        {
+            public string shoot;
+            public string reload;
+            public string continuous;
+            public string start;
+            public string release;
+            public string warmup;
+            public string explosion;
+        }
+
+        private static SfxSlots CaptureSfx(WeaponData w)
+        {
+            return new SfxSlots
+            {
+                shoot = w.shootSfx,
+                reload = w.reloadSfx,
+                continuous = w.continousShootSfx,
+                start = w.startSfx,
+                release = w.releaseSfx,
+                warmup = w.warmupSfx,
+                explosion = w.explosion.sfx
+            };
+        }
+
+        // Swap any sound field that names a file in the "sounds" folder for
+        // the Sfx id we registered for it. A field the JSON never touched, or
+        // one holding a real game sound id, is left exactly as it was.
+        private static void ApplyCustomSounds(
+            WeaponData w,
+            SfxSlots original,
+            string fileName)
+        {
+            w.shootSfx = SwapSound(
+                w.shootSfx, original.shoot, false, "shootSfx", fileName);
+
+            w.reloadSfx = SwapSound(
+                w.reloadSfx, original.reload, false, "reloadSfx", fileName);
+
+            w.startSfx = SwapSound(
+                w.startSfx, original.start, false, "startSfx", fileName);
+
+            w.releaseSfx = SwapSound(
+                w.releaseSfx, original.release, false, "releaseSfx",
+                fileName);
+
+            // These two are HELD sounds: Shooter starts them, keeps the
+            // handle, and calls AudioManager.Stop later. That only works on a
+            // looping Sfx, so the slot forces looping on regardless of what
+            // the replaced sound did.
+            w.continousShootSfx = SwapSound(
+                w.continousShootSfx, original.continuous, true,
+                "continousShootSfx", fileName);
+
+            w.warmupSfx = SwapSound(
+                w.warmupSfx, original.warmup, true, "warmupSfx", fileName);
+
+            // Explosion is a STRUCT field, so it has to be read out, changed
+            // and written back - editing w.explosion.sfx in place would only
+            // change a temporary copy.
+            string newExplosion = SwapSound(
+                w.explosion.sfx, original.explosion, false, "explosion.sfx",
+                fileName);
+
+            if (newExplosion != w.explosion.sfx)
+            {
+                Explosion ex = w.explosion;
+                ex.sfx = newExplosion;
+                w.explosion = ex;
+            }
+        }
+
+        private static string SwapSound(
+            string current,
+            string original,
+            bool forceLoop,
+            string slot,
+            string fileName)
+        {
+            if (string.IsNullOrEmpty(current))
+                return current;
+
+            // Untouched by the JSON - still the template's own sound.
+            if (current == original)
+                return current;
+
+            string guid = ForgeSfxRegistry.Resolve(
+                current, original, forceLoop, fileName);
+
+            if (guid != null)
+                return guid;
+
+            // Neither a custom sound nor a real game sound id. This is the
+            // silent-weapon trap, so say so loudly: the game's own reaction to
+            // an unknown id is to return -1 and play nothing at all.
+            if (!ForgeSfxRegistry.KnownGuid(current))
+            {
+                string known = ForgeSoundLibrary.Count > 0
+                    ? " Loaded custom sounds: " +
+                      string.Join(", ",
+                          System.Linq.Enumerable.ToArray(
+                              ForgeSoundLibrary.Names)) + "."
+                    : " No custom sounds are loaded - is there an audio " +
+                      "file in the 'sounds' folder next to the DLL?";
+
+                Log.LogWarning(
+                    fileName + ": " + slot + " is set to '" + current +
+                    "', which is neither a custom sound nor a sound id this " +
+                    "game has, so that slot will be SILENT." + known +
+                    " A custom sound is named after its file, without the " +
+                    "extension.");
+            }
+
+            return current;
+        }
+
+        // Recolor the muzzle flash. The prefab is SHARED - 53 stock
+        // weapons point at "MuzzleParticle Popper" - so we tint a private
+        // clone and hand the weapon that, otherwise recoloring one weapon
+        // would recolor most of the game. Multiply-tinted rather than
+        // overwritten so the flash keeps its gradient and alpha fade
+        // (see VisualCustomizer.Tint).
+        private static void ApplyMuzzleColor(
+            WeaponData weapon,
+            string muzzleColor,
+            float muzzleRgbSpeed,
+            string fileName)
+        {
+            if (weapon == null || string.IsNullOrEmpty(muzzleColor))
+                return;
+
+            if (weapon.muzzleParticlePrefab == null)
+            {
+                Log.LogWarning(
+                    fileName + ": muzzleColor was set but this template " +
+                    "has no muzzleParticlePrefab - nothing to tint. Set " +
+                    "muzzleParticlePrefab too (e.g. \"MuzzleParticle " +
+                    "Popper\").");
+                return;
+            }
+
+            bool rainbow = VisualCustomizer.IsRainbow(muzzleColor);
+
+            Color color = Color.white;
+            if (!rainbow &&
+                !VisualCustomizer.TryParseColor(muzzleColor, out color))
+            {
+                Log.LogWarning(
+                    fileName + ": muzzleColor '" + muzzleColor +
+                    "' is not a hex value, color name, ColorAsset or " +
+                    "\"rainbow\" - ignored.");
+                return;
+            }
+
+            GameObject clone = VisualCustomizer.ClonePrefab(
+                weapon.muzzleParticlePrefab.gameObject);
+
+            var ps = clone.GetComponent<ParticleSystem>();
+            if (ps == null)
+                ps = clone.GetComponentInChildren<ParticleSystem>(true);
+
+            if (ps == null)
+            {
+                Log.LogWarning(
+                    fileName + ": the muzzle prefab '" +
+                    weapon.muzzleParticlePrefab.name + "' has no " +
+                    "ParticleSystem to tint - muzzleColor ignored.");
+                UnityEngine.Object.Destroy(clone);
+                return;
+            }
+
+            // ClonePrefab stamps HideAndDontSave, but the game spawns THIS
+            // prefab itself (one instance per projectile) and Instantiate
+            // copies hideFlags - so those instances would stop being
+            // cleaned up on scene unload and pile up run after run, which
+            // matters most for a gadget weapon (nothing ever disposes it).
+            // The clone survives regardless: it lives under the
+            // DontDestroyOnLoad holder, and it is the holder being
+            // INACTIVE - not the flag - that keeps Awake from firing.
+            clone.hideFlags = HideFlags.None;
+
+            // Four stock muzzle prefabs (PopperRed, Laser, LaserRed,
+            // CrawlerLaser) bake a colored fade into colorOverLifetime,
+            // which Unity multiplies into startColor - so a cyan tint on
+            // PopperRed's red ramp would come out black. Drain the ramp of
+            // hue first, keeping its brightness curve.
+            VisualCustomizer.NeutralizeColorRamp(clone);
+
+            if (rainbow)
+                VisualCustomizer.ApplyRainbow(clone, muzzleRgbSpeed, true);
+            else
+                VisualCustomizer.Tint(clone, color);
+
+            weapon.muzzleParticlePrefab = ps;
+
+            Log.LogInfo(
+                fileName + ": muzzle flash tinted " +
+                (rainbow ? "rainbow" : muzzleColor) + ".");
         }
 
         // Phasing: the projectile/beam passes through terrain but still
@@ -903,6 +1401,400 @@ namespace WeaponForge
             Log.LogInfo(
                 fileName + ": wave beam (angle " + wave.angleDeg +
                 ", freq " + wave.frequency + ", " + wm + ")");
+        }
+
+        // Homing for a PLAIN projectile - "homing": { ... } on the weapon.
+        //
+        // The game's own homingData is unreachable here: ProjectileWeapon
+        // assigns it only inside the UsePhysics branch, so a fast straight shot
+        // like the Popper's can never home with stock data no matter what the
+        // JSON says. This attaches a ForgeHoming marker instead, which
+        // ForgeHomingPatch steers by rotating Velocity - and because the
+        // projectile's own collision sweep is built from Velocity, the hitbox
+        // curves with it.
+        private static void ApplyHoming(
+            WeaponData weapon,
+            JObject root,
+            string fileName)
+        {
+            JToken token = root["homing"];
+
+            if (token == null || token.Type == JTokenType.Null)
+                return;
+
+            // Two accepted forms: "homing": true is the whole feature at
+            // defaults, and an object carries settings. The object's own
+            // "enabled" is what the builder page writes, and it must be able
+            // to say false - a block cannot offer both a bare boolean AND
+            // nested keys under one name, because the bare value would be
+            // overwritten the moment a nested one is set.
+            var o = token as JObject;
+
+            if (o == null)
+            {
+                if (token.Type != JTokenType.Boolean || !(bool)token)
+                {
+                    Log.LogWarning(
+                        fileName + ": \"homing\" should be true or an " +
+                        "object - ignored.");
+                    return;
+                }
+            }
+            else if (!((bool?)o["enabled"] ?? true))
+            {
+                return;
+            }
+
+            var pw = weapon as ProjectileWeaponData;
+
+            if (pw == null || pw.projectilePrefab == null)
+            {
+                Log.LogWarning(
+                    fileName + ": homing only works on projectile weapons - " +
+                    "ignored. (A hitscan beam hits instantly, so there is no " +
+                    "flight to steer.)");
+                return;
+            }
+
+            // A usePhysics weapon fires a PhysicsProjectile, which our
+            // FixedUpdate patch never runs on - but that class DOES support the
+            // game's own homing, so point them at it rather than just refusing.
+            if (pw.usePhysics)
+            {
+                Log.LogWarning(
+                    fileName + ": \"homing\" is for plain projectiles, and " +
+                    "this weapon has usePhysics true. Lobbed/physics shots " +
+                    "have the game's OWN homing instead - use " +
+                    "\"homingData\": { \"enabled\": true, \"torque\": 40, " +
+                    "\"maxSpeed\": 20, \"acceleration\": 30, " +
+                    "\"maxAngularVelocity\": 200, \"targetMode\": " +
+                    "\"AutoSeekWhenShot\" } for those. Ignored.");
+                return;
+            }
+
+            // movementNoiseData recomputes the heading from idealDirection
+            // AFTER our prefix runs, which would wipe out every turn we make.
+            // Same clash wave has, same resolution.
+            var noise = pw.movementNoiseData;
+            if (noise.enabled)
+            {
+                noise.enabled = false;
+                pw.movementNoiseData = noise;
+                Log.LogWarning(
+                    fileName + ": homing overrides wobble/movementNoiseData " +
+                    "- disabling the noise, which would otherwise recompute " +
+                    "the heading and undo the homing every frame.");
+            }
+
+            GameObject clone = VisualCustomizer.ClonePrefab(
+                pw.projectilePrefab.gameObject);
+
+            var comp = clone.GetComponentInChildren<Projectile>(true);
+            if (comp == null)
+            {
+                Log.LogWarning(
+                    fileName + ": homing - no Projectile on prefab.");
+                return;
+            }
+
+            // Same GameObject as the Projectile, so the patch's
+            // GetComponent<ForgeHoming>() finds it.
+            var homing = comp.GetComponent<ForgeHoming>();
+            if (homing == null)
+                homing = comp.gameObject.AddComponent<ForgeHoming>();
+
+            if (o != null)
+            {
+                homing.turnRate = (float?)o["turnRate"] ?? 180f;
+                homing.range = (float?)o["range"] ?? 20f;
+                homing.cone = (float?)o["cone"] ?? 90f;
+                homing.retarget = (bool?)o["retarget"] ?? true;
+                homing.delay = (float?)o["delay"] ?? 0f;
+                homing.predict = (bool?)o["predict"] ?? false;
+                homing.maxTurn = (float?)o["maxTurn"] ?? 0f;
+                homing.faceTravel = (bool?)o["faceTravel"] ?? true;
+            }
+
+            pw.projectilePrefab = comp;
+
+            // The turn RADIUS is what people actually see, and it grows with
+            // the square of speed - so the same turnRate that whips a slow
+            // shot around barely bends a fast one. Do that sum for them,
+            // because "my homing does nothing" is otherwise a mystery.
+            float speed = pw.projectileSpeed;
+
+            if (speed > 0f && homing.turnRate > 0f)
+            {
+                float radius =
+                    speed / (homing.turnRate * Mathf.Deg2Rad);
+
+                Log.LogInfo(
+                    fileName + ": homing (turnRate " + homing.turnRate +
+                    " deg/s, range " + homing.range + ", cone " +
+                    homing.cone + ") - at projectileSpeed " + speed +
+                    " the tightest turn circle is about " +
+                    radius.ToString("0.0") + " units across the radius." +
+                    (radius > 12f
+                        ? " That is WIDE - the curve will barely show. Raise " +
+                          "turnRate or lower projectileSpeed if you want a " +
+                          "visible bend."
+                        : string.Empty));
+            }
+            else
+            {
+                Log.LogInfo(
+                    fileName + ": homing (turnRate " + homing.turnRate +
+                    " deg/s, range " + homing.range + ")");
+            }
+        }
+
+        // Bullet ricochet - "ricochet": { ... } on the weapon.
+        //
+        // The bouncing itself is the GAME's (ProjectileBounceData), including
+        // which layers bounce, and damage already lands before the bounce does.
+        // What the game has no notion of is a bounce COUNT - nothing tracks
+        // reflections, so a stock bouncer bounces until range or lifetime kills
+        // it. ForgeRicochet supplies the count plus the per-bounce shaping.
+        private static void ApplyRicochet(
+            WeaponData weapon,
+            JObject root,
+            string fileName)
+        {
+            JToken token = root["ricochet"];
+
+            if (token == null || token.Type == JTokenType.Null)
+                return;
+
+            var o = token as JObject;
+
+            if (o == null)
+            {
+                if (token.Type != JTokenType.Boolean || !(bool)token)
+                {
+                    Log.LogWarning(
+                        fileName + ": \"ricochet\" should be true or an " +
+                        "object - ignored.");
+                    return;
+                }
+            }
+            else if (!((bool?)o["enabled"] ?? true))
+            {
+                return;
+            }
+
+            var pw = weapon as ProjectileWeaponData;
+
+            if (pw == null || pw.projectilePrefab == null)
+            {
+                Log.LogWarning(
+                    fileName + ": ricochet only works on projectile weapons " +
+                    "- ignored.");
+                return;
+            }
+
+            // PhysicsProjectile has no bounce code at all - the game's whole
+            // bounce implementation lives in Projectile.OnObjectHit - so a
+            // lobbed shot cannot ricochet however it is configured.
+            if (pw.usePhysics)
+            {
+                Log.LogWarning(
+                    fileName + ": ricochet does not work on usePhysics " +
+                    "(lobbed) shots - the game's bounce code only exists on " +
+                    "the plain projectile. Ignored.");
+                return;
+            }
+
+            // What bounces. Terrain is the "Ground" layer, enemies "Entities";
+            // resolved by NAME so a layer reshuffle can't silently retarget it.
+            string targets =
+                ((string)(o != null ? o["targets"] : null) ?? "terrain")
+                    .Trim().ToLowerInvariant();
+
+            int ground = LayerMask.NameToLayer("Ground");
+            int entities = LayerMask.NameToLayer("Entities");
+
+            int bits = 0;
+            bool hitsEnemies = false;
+
+            switch (targets)
+            {
+                case "none":
+                    break;
+
+                case "enemies":
+                case "enemy":
+                    if (entities >= 0) bits |= 1 << entities;
+                    hitsEnemies = true;
+                    break;
+
+                case "both":
+                case "all":
+                    if (ground >= 0) bits |= 1 << ground;
+                    if (entities >= 0) bits |= 1 << entities;
+                    hitsEnemies = true;
+                    break;
+
+                case "terrain":
+                case "ground":
+                case "walls":
+                    if (ground >= 0) bits |= 1 << ground;
+                    break;
+
+                default:
+                    Log.LogWarning(
+                        fileName + ": ricochet targets '" + targets +
+                        "' is not recognised - use \"terrain\", " +
+                        "\"enemies\", \"both\" or \"none\". Defaulting to " +
+                        "terrain.");
+                    if (ground >= 0) bits |= 1 << ground;
+                    break;
+            }
+
+            // A FRESH object, never the one already on the weapon.
+            // ProjectileBounceData is a CLASS, so if Unity's ScriptableObject
+            // clone shares that reference with the stock asset, mutating it in
+            // place would make every White Popper in the game ricochet. Same
+            // trap the shared muzzle prefab had; the cheap fix is to never
+            // touch the existing instance.
+            var bounce = new ProjectileBounceData();
+            bounce.enabled = bits != 0;
+            bounce.layerMask = bits;
+            pw.projectileBounceData = bounce;
+
+            if (bits == 0)
+            {
+                Log.LogInfo(
+                    fileName + ": ricochet targets \"none\" - bouncing " +
+                    "turned off.");
+                return;
+            }
+
+            // Pierce beats bounce ON ENEMIES, in the game's own ordering:
+            // OnObjectHit returns early on a pierce before it ever reaches the
+            // bounce branch (terrain is exempt from that early-out, so walls
+            // still bounce). Both stock bouncers ship with piercing off. Which
+            // one wins is the weapon's call.
+            bool pierceWins =
+                (bool?)(o != null ? o["pierceWins"] : null) ?? false;
+
+            var pierce = pw.piercingData;
+
+            if (hitsEnemies && pierce.enabled)
+            {
+                if (pierceWins)
+                {
+                    Log.LogWarning(
+                        fileName + ": piercingData is on and pierceWins is " +
+                        "true, so shots will PASS THROUGH enemies rather " +
+                        "than bounce off them - only terrain will ricochet. " +
+                        "Set \"pierceWins\": false to get enemy bounces.");
+                }
+                else
+                {
+                    pierce.enabled = false;
+                    pw.piercingData = pierce;
+
+                    Log.LogWarning(
+                        fileName + ": ricochet targets enemies, so piercing " +
+                        "has been turned OFF - the game checks piercing " +
+                        "first and would pass through enemies instead of " +
+                        "bouncing off them. Set \"pierceWins\": true to keep " +
+                        "piercing and ricochet off terrain only.");
+                }
+            }
+
+            GameObject clone = VisualCustomizer.ClonePrefab(
+                pw.projectilePrefab.gameObject);
+
+            var comp = clone.GetComponentInChildren<Projectile>(true);
+            if (comp == null)
+            {
+                Log.LogWarning(
+                    fileName + ": ricochet - no Projectile on prefab.");
+                return;
+            }
+
+            var ric = comp.GetComponent<ForgeRicochet>();
+            if (ric == null)
+                ric = comp.gameObject.AddComponent<ForgeRicochet>();
+
+            ric.bounces = ParseBounces(o, fileName);
+
+            if (o != null)
+            {
+                ric.speedMultiplier = (float?)o["speedMultiplier"] ?? 1f;
+                ric.damageMultiplier = (float?)o["damageMultiplier"] ?? 1f;
+                ric.scatter = Mathf.Max(0f, (float?)o["scatter"] ?? 0f);
+                ric.seek = (bool?)o["seek"] ?? false;
+                ric.seekRange = (float?)o["seekRange"] ?? 20f;
+                ric.seekCone = (float?)o["seekCone"] ?? 180f;
+            }
+
+            pw.projectilePrefab = comp;
+
+            // Without a way to expire, an unlimited bouncer is immortal - and
+            // the two things that would stop it are exactly the two a beginner
+            // has not set.
+            if (ric.Unlimited &&
+                !pw.rangeData.enabled && !pw.lifetimeData.enabled)
+            {
+                Log.LogWarning(
+                    fileName + ": ricochet bounces is unlimited and this " +
+                    "weapon has neither rangeData nor lifetimeData enabled, " +
+                    "so these shots will bounce around FOREVER and pile up. " +
+                    "Give it \"lifetimeData\": { \"enabled\": true, " +
+                    "\"time\": 3 } or a bounce limit.");
+            }
+
+            Log.LogInfo(
+                fileName + ": ricochet off " + targets + ", " +
+                (ric.Unlimited
+                    ? "unlimited bounces"
+                    : ric.bounces + " bounce(s)") +
+                (ric.seek ? ", seeking" : string.Empty) +
+                (ric.scatter > 0f
+                    ? ", scatter " + ric.scatter + " deg"
+                    : string.Empty) +
+                (ric.speedMultiplier != 1f
+                    ? ", speed x" + ric.speedMultiplier + "/bounce"
+                    : string.Empty) +
+                (ric.damageMultiplier != 1f
+                    ? ", damage x" + ric.damageMultiplier + "/bounce"
+                    : string.Empty) + ".");
+        }
+
+        // "bounces" accepts a number, or "infinite"/"unlimited"/-1. Anything
+        // unlimited is stored as -1.
+        private static int ParseBounces(JObject o, string fileName)
+        {
+            JToken token = o != null ? o["bounces"] : null;
+
+            if (token == null || token.Type == JTokenType.Null)
+                return 3;
+
+            if (token.Type == JTokenType.String)
+            {
+                string s = ((string)token ?? string.Empty)
+                    .Trim().ToLowerInvariant();
+
+                if (s == "infinite" || s == "unlimited" ||
+                    s == "forever" || s == "-1")
+                {
+                    return -1;
+                }
+
+                int parsed;
+                if (int.TryParse(s, out parsed))
+                    return parsed < 0 ? -1 : parsed;
+
+                Log.LogWarning(
+                    fileName + ": ricochet bounces '" + s + "' is not a " +
+                    "number or \"infinite\" - using 3.");
+                return 3;
+            }
+
+            int n = (int?)token ?? 3;
+            return n < 0 ? -1 : n;
         }
 
         // Deployable turret / mine: the projectile repeatedly FIRES another
@@ -1157,6 +2049,12 @@ namespace WeaponForge
             cfg.spiralOutTime = (float?)root["orbitSpiralTime"] ?? 0.8f;
             cfg.spiralLaunchSpeed = (float?)root["orbitSpiralLaunchSpeed"] ?? 12f;
             cfg.spiralKillDistance = (float?)root["orbitSpiralRange"] ?? 14f;
+
+            // Terrain digging. Orbs have no collision layer of their own, so
+            // this is what makes them chew walls the way a normal shot does.
+            cfg.damageTerrain = (bool?)root["orbitDamageTerrain"] ?? false;
+            cfg.terrainRepeatDelay =
+                (float?)root["orbitTerrainRepeatDelay"] ?? 0.15f;
 
             // Destructible orbs + regen.
             cfg.destroyOnEnemy = (bool?)root["orbitDestroyOnEnemy"] ?? false;

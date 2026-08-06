@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -93,6 +93,24 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <!-- Texture2D.LoadImage is an extension method that lives here, not on
+         Texture2D itself - needed to build a sprite from a PNG on disk. -->
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\UnityEngine.ImageConversionModule.dll</HintPath>
+    </Reference>
+    <!-- AudioClip / AudioSource / AudioMixerGroup live here, not in
+         UnityEngine.dll - needed to build a sound from a file on disk. -->
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\UnityEngine.AudioModule.dll</HintPath>
+    </Reference>
+    <!-- Unity has no synchronous decoder for ogg/mp3; UnityWebRequestMultimedia
+         is the only runtime route, and it needs both of these. -->
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\UnityEngine.UnityWebRequestModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule">
+      <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.ParticleSystemModule">
       <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\UnityEngine.ParticleSystemModule.dll</HintPath>
     </Reference>
@@ -139,6 +157,20 @@
     <Compile Include="ForgeWavePatch.cs" />
     <Compile Include="ForgeTurret.cs" />
     <Compile Include="ForgeProjectileTracker.cs" />
+    <Compile Include="ForgeBeam.cs" />
+    <Compile Include="ForgeHoming.cs" />
+    <Compile Include="ForgeHomingPatch.cs" />
+    <Compile Include="ForgeRicochet.cs" />
+    <Compile Include="ForgeRicochetPatch.cs" />
+    <Compile Include="ForgeColorLock.cs" />
+    <Compile Include="ForgeExplosionColor.cs" />
+    <Compile Include="ForgeExplosionColorPatch.cs" />
+    <Compile Include="ForgeSfxRegistry.cs" />
+    <Compile Include="ForgeSoundLibrary.cs" />
+    <Compile Include="ForgeSoundLoader.cs" />
+    <Compile Include="ForgeSpriteLibrary.cs" />
+    <Compile Include="ForgeTrail.cs" />
+    <Compile Include="ForgeSpriteAnimation.cs" />
     <Compile Include="StarterFiles.cs" />
     <Compile Include="JsonFieldMapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
