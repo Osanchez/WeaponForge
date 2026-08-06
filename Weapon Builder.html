@@ -160,6 +160,7 @@
             <option>Module Weapon Electron Zapper</option>
             <option>Module Weapon Electron Toroid</option>
             <option>Module Weapon White Worm</option>
+            <option>Module Weapon Fly</option>
           </optgroup>
           <optgroup label="Hitscan (laser beam)">
             <option>Module Weapon Caps Laser</option>
@@ -305,10 +306,6 @@
       <label class="field"><span>warmupTime</span>
         <input type="number" step="any" data-path="weapon.warmupTime">
         <em>charge-up seconds</em></label>
-      <label class="field"><span>damageRepeatDelay</span>
-        <input type="number" step="any" data-path="weapon.damageRepeatDelay">
-        <em>HITSCAN/laser only: seconds between damage ticks on a held
-        target (lower = faster). Also limited by fireRate.</em></label>
       <label class="field"><span>burn min</span>
         <input type="number" step="any" data-path="weapon.burn.Min">
         <em>fire this weapon applies. Set both to 0 to stop igniting
@@ -359,6 +356,236 @@
     </div>
 
     <details class="block">
+      <summary><input type="checkbox" class="gate">sound, shake &amp; muzzle
+        <span class="tag">how the weapon FEELS - all weapon types</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>how these work</span>
+          <em>Every stock weapon sets most of these and the builder never
+              offered them, so forged weapons have been inheriting whatever
+              the template had. The particle / shake / rumble ones are asset
+              lookups <b>by name</b>: you can only point at something the game
+              already ships. The <b>sound</b> fields take either an audio
+              <b>GUID</b> (use the pickers) <b>or the name of your own audio
+              file</b> - see the next box.</em></label>
+        <label class="field"><span>YOUR OWN SOUNDS <span class="tag">read me</span></span>
+          <em>Every sound field below accepts a file you supply. Drop an audio
+              file in a <code>sounds</code> folder next to the DLL and use its
+              <b>file name without the extension</b>:
+              <br><br><code>"shootSfx": "mylaser"</code> &nbsp;&larr; for
+              <code>sounds/mylaser.wav</code>
+              <br><br><b>File types.</b> <code>.wav</code> is best - it is
+              decoded directly, always works, and is ready instantly (any bit
+              depth: 8/16/24/32-bit or float). <code>.ogg</code> works too.
+              <code>.mp3</code> usually works but leans on the platform's
+              decoder, so if a file stays silent, convert it to .wav.
+              <code>.aiff</code> also works. The <i>game</i> itself can't load
+              files at all - it ships pre-baked clips - so this is the mod
+              decoding your file and handing the engine a real AudioClip.
+              <br><br><b>It becomes a real game sound</b>, not a bolt-on: it
+              is registered into the game's own audio database, so 3D
+              positioning, the in-game SFX volume slider, the audio mixer,
+              voice pooling and repeat-throttling all work on it exactly like a
+              stock sound. Settings you don't specify are <b>copied from the
+              sound you replaced</b>, so a custom looping beam sound loops and
+              a custom gunshot doesn't.
+              <br><br><b>Too loud?</b> Very likely - exported audio is usually
+              far hotter than the game's. Add a <code>.json</code> beside the
+              file with the same name:
+              <br><code>mylaser.wav</code> + <code>mylaser.json</code>
+              containing <code>{ "volume": 0.6 }</code>
+              <br>That file also takes <code>looping</code>,
+              <code>is3d</code>, <code>priority</code>,
+              <code>repeatMinDelay</code> (raise it if a fast weapon sounds
+              like a buzzsaw) and <code>cancelPrevious</code>.
+              <br><br><b>Random variation.</b> Same sidecar:
+              <code>{ "variants": ["shot1.wav", "shot2.wav", "shot3.wav"] }</code>
+              picks one at random per shot, which is how the game's own
+              gunshots avoid sounding mechanical.
+              <br><br>No pitch control exists - the game never touches
+              AudioSource.pitch, so bake pitch variation into your files
+              (that's what variants are for). A misspelled name is reported in
+              the log along with a list of the sounds that <i>did</i> load, and
+              the slot goes silent rather than falling back.</em></label>
+
+        <label class="field"><span>shootSfx</span>
+          <input type="text" data-path="weapon.shootSfx"
+                 placeholder="891a1b2e-39c4-4a79-bcc9-6b89523a429d">
+          <em>the firing sound, played once per volley at the barrel. This is
+              the one sound field that works in <b>every</b> slot - primary,
+              secondary, gadget, and sub-emitter stages. For a stock sound it
+              must be the audio <b>GUID</b>, not the readable path: the lookup
+              compares GUIDs only, so typing "Weapons/Bolt/Shoot" is silence.
+              Or put <code>mylaser</code> here for your own
+              <code>sounds/mylaser.wav</code>.</em></label>
+        <label class="field"><span>shootSfx presets</span>
+          <select class="preset" data-preset-for="weapon.shootSfx">
+            <option value="">-- pick a firing sound --</option>
+            <option value="891a1b2e-39c4-4a79-bcc9-6b89523a429d">Popper (fast tap)</option>
+            <option value="d39fd50f-9e3e-41ef-9ccd-f00c2282dbb1">Bolt (heavy single)</option>
+            <option value="3c33af41-a69f-48ef-bfad-4dfc832c3ed0">Shotgun</option>
+            <option value="0a935746-47fa-4289-8e15-85cdc9654830">Worm</option>
+            <option value="9eb980c5-e062-4bd2-8542-ab006384856f">Blades</option>
+            <option value="819a0502-ee97-4cae-ac1b-9b1f5a25e2b3">Derbis (lob)</option>
+            <option value="dbbf6fed-8014-4764-b46e-2b912b380a21">DiscGun</option>
+            <option value="b4f0a35e-3bd1-458f-a672-c0aed298c6eb">Marbles</option>
+            <option value="34f78c2e-c4ae-40d2-80d4-2403e6c16f13">Shard</option>
+            <option value="2c6ed77c-5e6e-450a-a194-27cc4b183848">ClusterCube</option>
+            <option value="1704701a-7758-44cf-a983-096a84cd915f">Dandelion</option>
+            <option value="3da1c704-cb77-4f4a-9b07-91849362b2bd">Dart (missile)</option>
+            <option value="31f3bccd-c5a2-460f-b6a7-66b608749a60">FireMissile</option>
+            <option value="b47fbfd7-e9a7-4411-956f-45fd83aac759">PurpleMissile</option>
+            <option value="2006c890-c2b5-460d-93fa-ea8ff10dc66d">Toroid</option>
+            <option value="e8fc5ecf-1133-4e09-bfd1-6e72fff1076c">Flame (loop-ish)</option>
+            <option value="b64bac2d-d394-4d46-a5a3-343333b65a51">Laser</option>
+          </select>
+          <em>fills the field above</em></label>
+
+        <label class="field"><span>reloadSfx</span>
+          <input type="text" data-path="weapon.reloadSfx"
+                 placeholder="c3120d6d-d216-4f5b-b6ad-36229edbc203">
+          <em>plays when the weapon finishes its cooldown and is ready again.
+              79 of the 80 stock projectile weapons use the same one
+              (Weapons/Popper/Reload =
+              c3120d6d-d216-4f5b-b6ad-36229edbc203) - that is the safe
+              value. Or your own file's name.</em></label>
+
+        <label class="field"><span>continousShootSfx</span>
+          <input type="text" data-path="weapon.continousShootSfx"
+                 placeholder="e8fc5ecf-1133-4e09-bfd1-6e72fff1076c">
+          <em>a LOOPING sound started while you hold the trigger, for beams
+              and flamethrowers (Flame and Laser are the only stock users).
+              Spelled with the game's own typo - one 'u'. Only primary /
+              secondary; a gadget never starts it.
+              <br>A custom sound here is <b>forced to loop</b>, whatever it
+              replaced: the game starts this one, keeps the handle and stops it
+              later, so a one-shot would play once and never restart. Give it a
+              seamless loop - it will be cut off mid-sound when you release the
+              trigger, which is normal and what <code>releaseSfx</code> is
+              for.</em></label>
+        <label class="field"><span>startSfx</span>
+          <input type="text" data-path="weapon.startSfx"
+                 placeholder="c63c92e3-a22d-44bd-974a-b3b3ed1ed2b5">
+          <em>one-shot played as the loop spins up (Flame:
+              c63c92e3-…, Laser: 386a8a3a-…).</em></label>
+        <label class="field"><span>releaseSfx</span>
+          <input type="text" data-path="weapon.releaseSfx"
+                 placeholder="0b773c09-2d78-4f04-b05b-e3b45f967e3e">
+          <em>one-shot played as the loop stops. Gotcha: it only fires if the
+              loop was actually started, so never write
+              <code>"continousShootSfx": null</code> while expecting a release
+              sound - leave that field out instead.</em></label>
+        <label class="field"><span>warmupSfx</span>
+          <input type="text" data-path="weapon.warmupSfx"
+                 placeholder="ea8fb19f-4770-4b84-b478-95d30b805d6e">
+          <em>charge-up sound - pair it with warmupTime. No stock projectile
+              weapon sets it; the Laser's is
+              ea8fb19f-4770-4b84-b478-95d30b805d6e. Like
+              <code>continousShootSfx</code> this is a <b>held</b> sound, so a
+              custom one is forced to loop.</em></label>
+
+        <label class="field"><span>shakePreset</span>
+          <select data-path="weapon.shakePreset">
+            <option value="">keep template</option>
+            <option value="Shake_Gunshot_Small">Shake_Gunshot_Small (33 stock weapons)</option>
+            <option value="Shake_Gunshot_Medium">Shake_Gunshot_Medium</option>
+            <option value="SmallExplosion">SmallExplosion</option>
+            <option value="Shake_Explosion">Shake_Explosion</option>
+            <option value="Shake_Explosion_MIN">Shake_Explosion_MIN</option>
+            <option value="Shake_Explosion_Long">Shake_Explosion_Long</option>
+            <option value="Shake_Explosion_MAX">Shake_Explosion_MAX</option>
+            <option value="Shake_Collision">Shake_Collision</option>
+            <option value="Shake_Excavate">Shake_Excavate</option>
+            <option value="Shake_Wound">Shake_Wound</option>
+            <option value="Shake_Shipdamage">Shake_Shipdamage</option>
+          </select>
+          <em>screen shake per shot. You can only SWAP presets, never tune
+              one. Two warnings: it fires from the ship's shooter, so a
+              <b>gadget</b>-slot weapon never shakes; and a high fireRate
+              paired with Shake_Explosion_MAX will make the game
+              unplayable.</em></label>
+        <label class="field"><span>rumblePreset</span>
+          <select data-path="weapon.rumblePreset">
+            <option value="">keep template</option>
+            <option value="Rumble WeaponShot Small">Rumble WeaponShot Small (43 stock)</option>
+            <option value="Rumble WeaponShot Medium">Rumble WeaponShot Medium</option>
+            <option value="Rumble WeaponShot Large">Rumble WeaponShot Large</option>
+            <option value="Rumble WeaponShot Derbis">Rumble WeaponShot Derbis</option>
+            <option value="Rumble WeaponShot Flame">Rumble WeaponShot Flame</option>
+          </select>
+          <em>gamepad rumble per shot. Same shooter dependency as shakePreset
+              (no rumble from a gadget), and it is silently inert on
+              keyboard/mouse.</em></label>
+
+        <label class="field"><span>muzzleParticlePrefab</span>
+          <select data-path="weapon.muzzleParticlePrefab">
+            <option value="">keep template</option>
+            <option value="MuzzleParticle Popper">MuzzleParticle Popper (53 stock)</option>
+            <option value="MuzzleParticle PopperRed">MuzzleParticle PopperRed</option>
+            <option value="MuzzleParticle Fly">MuzzleParticle Fly</option>
+            <option value="MuzzleParticle Beacon">MuzzleParticle Beacon</option>
+            <option value="MuzzleParticle Sniper">MuzzleParticle Sniper</option>
+            <option value="MuzzleParticle Cross">MuzzleParticle Cross</option>
+            <option value="MuzzleParticle CrossAlpha">MuzzleParticle CrossAlpha</option>
+          </select>
+          <em>flash at the barrel. One instance is pre-made per projectile, so
+              a big projectileCount with a heavy prefab costs
+              performance.</em></label>
+        <label class="field"><span>muzzleColor</span>
+          <input type="text" data-path="weapon.muzzleColor"
+                 placeholder="#33ddff / cyan / ColorBlue / rainbow">
+          <em>recolor the muzzle flash. Same value styles as
+              projectileColor: hex ("#33ddff" or "#rrggbbaa"), an HTML
+              colour name ("cyan"), a game colour ("ColorBlue"), or
+              "rainbow" / "rgb" for an animated cycle. The flash has no
+              single colour field - it is a particle <b>gradient</b> - so
+              this MULTIPLIES the artist's gradient rather than replacing
+              it, which keeps the flicker and the fade-out. Consequences:
+              a <b>dark</b> value dims the flash instead of darkening it
+              (use bright hues), pure white is a no-op, and alpha scales
+              the flash's strength (#ffffff80 = half). Four of the muzzle
+              prefabs (PopperRed, and the Laser ones) bake a coloured
+              red/blue fade into the particle itself; tinting drains that
+              baked hue and keeps only its brightness, so your colour
+              actually shows - otherwise cyan-on-PopperRed would come out
+              black. The prefab is shared by 53 stock weapons, so the mod
+              tints a private copy: your weapon never recolours anyone
+              else's.</em></label>
+        <label class="field"><span>muzzleColor presets</span>
+          <select class="preset" data-preset-for="weapon.muzzleColor">
+            <option value="">-- pick a flash colour --</option>
+            <option value="rainbow">rainbow (animated RGB)</option>
+            <option value="cyan">cyan</option>
+            <option value="#33ddff">#33ddff (ice blue)</option>
+            <option value="#ff3355">#ff3355 (hot red)</option>
+            <option value="#ffaa22">#ffaa22 (orange)</option>
+            <option value="#aa66ff">#aa66ff (purple)</option>
+            <option value="#66ff88">#66ff88 (toxic green)</option>
+            <option value="ColorBlue">ColorBlue (game palette)</option>
+            <option value="ColorOrange">ColorOrange (game palette)</option>
+          </select>
+          <em>fills the field above</em></label>
+        <label class="field"><span>muzzleRgbSpeed</span>
+          <input type="number" step="any" data-path="weapon.muzzleRgbSpeed"
+                 placeholder="0.5">
+          <em>only used when muzzleColor is "rainbow": hue cycles per second
+              (0.5 = a full rainbow every 2 seconds). Negative values cycle
+              backwards. Separate from rainbowSpeed so the flash and the
+              projectile can cycle at different rates. Note a flash only
+              lives a fraction of a second, so a slow speed reads as "each
+              shot is a slightly different colour" rather than as a visible
+              cycle - crank it up if you want the flicker itself to
+              rainbow.</em></label>
+        <label class="field"><span>reloadParticlePrefab</span>
+          <select data-path="weapon.reloadParticlePrefab">
+            <option value="">keep template</option>
+            <option value="reloadParticle_weapon_Popper">reloadParticle_weapon_Popper</option>
+          </select>
+          <em>puff when the weapon comes off cooldown. Only 9 stock weapons
+              bother, and they all use this one.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
       <summary><input type="checkbox" class="gate">explosion
         <span class="tag">explode on hit/expiry (pair with impactBehaviour / lifetimeData)</span></summary>
       <div class="fields grid">
@@ -377,6 +604,85 @@
             <option>Resource Fuel</option><option>Resource Tech</option>
           </select>
           <em>Resource/element the blast damage counts as.</em></label>
+        <label class="field"><span>explosionColor</span>
+          <input type="text" data-path="weapon.explosionColor"
+                 placeholder="#33ddff / cyan / ColorBlue / rainbow">
+          <em>recolor the blast. <b>The game has no explosion colour of its
+              own</b> - stock explosions take their look from the FIRST
+              damage type in the list below (White is orange-white, Electron
+              is blue, and so on), so without this the only way to change the
+              colour is to change what the damage counts as. This tints the
+              burst directly and leaves the damage alone. Same value styles as
+              projectileColor: hex, an HTML colour name, a game colour, or
+              "rainbow". Multiply-tinted like the muzzle flash, so the
+              artist's fade survives and a <b>dark</b> value dims the blast
+              rather than darkening it. Works on impact, lifetime, orbit-orb
+              and lobbed explosions.</em></label>
+        <label class="field"><span>explosionRgbSpeed</span>
+          <input type="number" step="any" data-path="weapon.explosionRgbSpeed"
+                 placeholder="0.5">
+          <em>"rainbow" only. A blast is a single burst, so it cannot cycle
+              <i>within</i> one explosion - instead each explosion takes the
+              next hue, so rapid fire walks the wheel. This is how fast that
+              walk goes (hue per second).</em></label>
+        <label class="field"><span>known limit</span>
+          <em>The brief <b>light flash</b> an explosion throws still uses the
+              damage type's colour - that one is read straight off the shared
+              resource asset, and overriding it would change every explosion
+              of that element in the game. So a strongly recoloured blast
+              keeps an element-coloured flash for a fraction of a
+              second.</em></label>
+        <label class="field"><span>sfx</span>
+          <input type="text" data-path="weapon.explosion.sfx"
+                 placeholder="42200f6d-88ea-4e34-9bec-aa5c019582c9">
+          <em>the boom, as an audio GUID (not a readable path). 33 stock
+              weapons set it and it fires in every slot. Use the picker - or
+              type the name of your own file from the <code>sounds</code>
+              folder, same as the weapon sound fields.</em></label>
+        <label class="field"><span>sfx presets</span>
+          <select class="preset" data-preset-for="weapon.explosion.sfx">
+            <option value="">-- pick a blast sound --</option>
+            <option value="42200f6d-88ea-4e34-9bec-aa5c019582c9">Marbles explosion (Popper uses this)</option>
+            <option value="6d3022f0-9b78-4030-b8a7-ac9468466f59">Flack explosion</option>
+            <option value="a2c95451-66f1-488d-9114-4001a423f617">Shard explosion</option>
+            <option value="f3e65d9d-bb1d-491b-a6c7-c2fdafd8d72d">ClusterCube explosion</option>
+            <option value="b119c6c0-5f18-435e-b21c-5e119bc474e9">ClusterCube sub-explosion</option>
+            <option value="eb979de6-1783-4ca5-814c-12a38378c82c">Dandelion explosion</option>
+            <option value="638cc7d0-92d1-4390-8f0a-1da630817a45">Dandelion sub-explosion</option>
+            <option value="18955dc2-1afa-445a-896a-25039baec11d">Dart explosion</option>
+            <option value="92588224-2246-43fd-9d2c-83ce8568ff2a">FireMissile explosion</option>
+            <option value="324b8366-2b3b-4f72-8d7a-22989ff616c3">PurpleMissile explosion</option>
+            <option value="561cb8ca-d1e1-4b0c-adce-a8f46ea2a12e">Popper impact (small tick)</option>
+            <option value="6cf6faa3-6ac6-4850-9a05-360209b33f5b">Shotgun impact</option>
+            <option value="d9c44e9e-9e77-43ee-afdf-878782af61ad">Worm impact</option>
+            <option value="07b1d30a-30a0-4df4-9d7c-fd494f94f47b">Derbis impact</option>
+            <option value="9982d227-680a-4b54-8f7f-59b18c412750">DiscGun impact</option>
+          </select>
+          <em>fills the field above</em></label>
+        <label class="field"><span>skipCamShake</span>
+          <select data-path="weapon.explosion.skipCamShake" data-type="bool">
+            <option value="">keep template</option>
+            <option value="true">true</option><option value="false">false</option>
+          </select>
+          <em>true stops the blast from shaking the camera. This is the fix
+              for the classic modded-weapon problem: a fast-firing explosive
+              shakes the screen into mush. Note this shake is <b>separate</b>
+              from weapon.shakePreset above - the explosion one is scaled by
+              radius automatically and cannot be swapped, only
+              suppressed.</em></label>
+        <label class="field"><span>MULTI-TYPE blasts</span>
+          <em>The two fields above build a single-damage blast, which covers
+              almost everything. Under the hood the explosion holds a
+              <b>list</b>, and the list is also what picks the visuals: entry 1
+              chooses the base explosion art, and every extra entry layers on
+              that element's add-on art. To get a mixed-element blast, hand-edit
+              the saved JSON into
+              <code>"explosion": {"radius": 3, "damages": [{"amount": 5,
+              "damageType": "Resource Caps"}, {"amount": 3, "damageType":
+              "Resource Electron"}]}</code> - the mod maps that fine, the
+              builder just has no UI for it. <b>Never</b> leave the list empty
+              while radius &gt; 0 or a spawnExplosion flag is on: the game
+              reads entry 1 unconditionally and throws.</em></label>
       </div>
     </details>
 
@@ -405,6 +711,16 @@
             <option>Resource Fuel</option><option>Resource Tech</option>
           </select>
           <em>Resource/element the lightning damage counts as.</em></label>
+        <label class="field"><span>layerMask</span>
+          <input type="text" data-path="weapon.discharge.layerMask"
+                 placeholder="Entities">
+          <em>which layers the lightning is allowed to hop to. Every stock
+              weapon uses bit 128 = the <code>Entities</code> layer, which is
+              what you want (enemies). Accepts a layer name, a list of names,
+              or a raw bitmask number. <b>A misspelled layer name silently
+              becomes "hits nothing"</b> - neither Unity nor the mod can tell
+              a typo from a deliberate empty mask, so copy the spelling
+              exactly.</em></label>
       </div>
     </details>
 
@@ -592,12 +908,33 @@
             <option value="true">true</option>
           </select>
           <em>orb is destroyed when it hits an enemy</em></label>
+        <label class="field"><span>orbitDamageTerrain</span>
+          <select data-path="orbitDamageTerrain" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em>orbs DIG - they damage and destroy terrain cells they touch,
+              exactly the way one of this weapon's normal shots would (cell
+              shake, burn, and the cell's own resistance still applies, so a
+              weak orbit won't chew through tough rock). Off by default: orbs
+              are art, not real projectiles, so they have no collision layer
+              and pass over walls unless you turn this on. Nothing to do with
+              phasing.</em></label>
+        <label class="field"><span>orbitTerrainRepeatDelay</span>
+          <input type="number" step="any" data-path="orbitTerrainRepeatDelay"
+                 placeholder="0.15">
+          <em>seconds between cell hits PER ORB while digging. Lower bores
+              faster; 0.15 is a steady grind. An orb only ever breaks one cell
+              per tick, so this is your dig speed.</em></label>
         <label class="field"><span>orbitDestroyOnTerrain</span>
           <select data-path="orbitDestroyOnTerrain" data-type="bool">
             <option value="">false</option>
             <option value="true">true</option>
           </select>
-          <em>orb is destroyed when it hits terrain</em></label>
+          <em>orb is destroyed when it touches terrain. This is about the ORB
+              dying, not about hurting the wall - pair it with
+              orbitDamageTerrain if you want the orb to break a cell and then
+              pop, or use orbitRegenMode to bring it back.</em></label>
         <label class="field"><span>orbitRegenMode</span>
           <select data-path="orbitRegenMode">
             <option value="">both (timer + on fire)</option>
@@ -670,8 +1007,107 @@
 
     <details class="block">
       <summary><input type="checkbox" class="gate">projectile / beam visuals
-        <span class="tag">recolor &amp; resize the shot</span></summary>
+        <span class="tag">recolor, resize &amp; re-sprite the shot</span></summary>
       <div class="fields grid">
+        <label class="field"><span>projectileSprite <span class="tag">YOUR OWN ART</span></span>
+          <input type="text" data-path="weapon.projectileSprite"
+                 placeholder="myBullet">
+          <em>swap the shot's art for a sprite <b>you</b> drew. Put a PNG in
+              the mod's <code>sprites</code> folder (next to the DLL) and name
+              it here. Use the <b>Sprite Sheet Builder.html</b> tool that
+              ships alongside this page to cut a sheet up visually - it writes
+              the .json the mod reads, and it converts a GIF into a PNG sheet
+              since the engine cannot read GIF. Names are yours alone and
+              cannot clash with the game's own art. Projectile weapons only
+              (a beam's art is stretched/tiled, which needs 9-slice borders -
+              not wired up yet). Missing names are reported in the log, and
+              the shot falls back to the template's art.
+              <br><br><b>NAMING - the one that catches everybody.</b> This
+              field takes the name of <i>a thing inside the sheet</i>, NOT the
+              name of the .png or the .json. A sheet holds two kinds of
+              thing, and they have separate names:
+              <br>&bull; a <b>sprite</b> = one still frame. The slicer names
+              these after the sheet: <code>petrolbm</code>,
+              <code>petrolbm_1</code>, <code>petrolbm_2</code>&hellip; (the
+              numbers only keep the names unique - they are not frame
+              numbers).
+              <br>&bull; an <b>animation</b> = the flipbook. The slicer names
+              it <code>&lt;sheet&gt;Anim</code>, e.g.
+              <code>petrolbmAnim</code>.
+              <br>So <code>"projectileSprite": "petrolbm"</code> gives you a
+              single frozen frame, and
+              <code>"projectileSprite": "petrolbmAnim"</code> gives you the
+              animation. Both are valid - a still frame is a legitimate
+              choice - so the mod can't reject either, but it now logs a hint
+              if you name a frame that happens to be frame 1 of an animation.
+              The slicer's export panel always shows the right line to copy.
+              <br><br>The base game has no animated projectiles at all (every
+              stock ammo prefab is one static sprite), so this is a Forge
+              addition.</em></label>
+        <label class="field"><span>projectileGlow</span>
+          <select data-path="weapon.projectileGlow" data-type="bool">
+            <option value="">keep template</option>
+            <option value="false">false - draw art as painted</option>
+            <option value="true">true - emissive glow</option>
+          </select>
+          <em><b>Fixes "the game recoloured my sprite".</b> Some ammo prefabs
+              render through the game's <i>emissive</i> sprite shader, which
+              is right for a glowing blob but blows detailed art out toward
+              white. <b>White Derbis does this</b>, so custom art on a lobbed
+              weapon usually needs <code>false</code>. Nothing is tinting your
+              sprite - it is being shaded. false swaps in the plain unlit
+              material the Popper uses; true forces the glow on a weapon that
+              didn't have it.</em></label>
+        <label class="field"><span>projectileMaterial</span>
+          <input type="text" data-path="weapon.projectileMaterial"
+                 placeholder="SpriteUnlitAA">
+          <em>escape hatch - name any material asset in the game and it is
+              used for the shot's sprite renderers. The two that matter are
+              <code>SpriteUnlitAA</code> (as-painted, what projectileGlow
+              false picks) and <code>EmissiveUnlitSprite</code> (glow, what
+              true picks). Overrides projectileGlow if both are
+              set.</em></label>
+        <label class="field"><span>projectileSpriteOnly</span>
+          <select data-path="weapon.projectileSpriteOnly" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true</option>
+          </select>
+          <em><b>"My sprite is drawn ON TOP of the old one."</b> That is this.
+              A projectile prefab is more than one sprite - the Popper's ammo
+              carries three child particle systems (<code>particle</code>,
+              <code>particle_glow</code>, <code>trail</code>), the Worm two,
+              the Bolt a trail - and projectileSprite only replaces the
+              <i>sprite renderer</i>. The particles keep emitting the
+              template's own glow and trail around your art. <b>true</b>
+              switches all that off (extra sprite renderers, particle systems,
+              trails) so only your sprite shows. Left off by default because
+              keeping the template's glow over your own art often looks
+              great - it is only wrong when you didn't expect it.
+              <br>Tip: <code>Module Weapon White Derbis</code> has no extra
+              art at all, which is why custom sprites look clean on it with no
+              extra work.</em></label>
+        <label class="field"><span>which way does it face? <span class="tag">read me</span></span>
+          <em><b>Draw the projectile pointing RIGHT (+X).</b> The game turns a
+              shot with <code>FromToRotation(Vector2.right, direction)</code>,
+              so its right-hand edge is the nose and its left is the tail. A
+              centred pivot (0.5, 0.5 - the slicer's default) means it spins
+              about its middle.
+              <br><br>The catch differs by type. A <b>lobbed</b> shot is
+              rotated the moment it spawns, so it always points along its
+              travel. A <b>straight</b> shot spawns with <i>no rotation at
+              all</i> and is only turned if you enable
+              <code>rotationData</code> with
+              <code>orientationAlignment: "WhenShot"</code> - without that
+              your sprite keeps whatever angle you drew it at no matter which
+              way you fire. If your art looks like it is flying sideways, that
+              is the setting you are missing.</em></label>
+        <label class="field"><span>sprite scale reminder</span>
+          <em>The game runs at <b>20 pixels per world unit</b> and stock
+              projectile art is tiny - the Popper's bullet is <b>7x7
+              pixels</b>. A 64x64 PNG will be roughly nine times too big;
+              either draw small or raise <code>pixelsPerUnit</code> in the
+              sheet's .json. The slicer tool previews your sprite next to the
+              Popper so you can see it.</em></label>
         <label class="field"><span>color (game presets)</span>
           <select id="f-proj-color-preset">
             <option value="">-- pick a game color --</option>
@@ -690,7 +1126,14 @@
           <input type="text" id="f-proj-color-custom"
                  data-path="weapon.projectileColor"
                  placeholder="cyan, #33ddff, or rainbow">
-          <em>tints projectile/beam; "rainbow" cycles colors</em></label>
+          <em>tints projectile/beam; "rainbow" cycles colors. It MULTIPLIES,
+              so this fights custom art - white (or leaving it blank) is the
+              neutral value. Two useful extremes: <code>#ffffff00</code> makes
+              the shot completely <b>invisible</b> (alpha 0 - handy for an
+              unseen carrier, a pure-explosion weapon, or a turret you don't
+              want to see), and a dark value dims rather than darkens. If your
+              own sprite looks washed out, that is
+              <code>projectileGlow</code> above, not this.</em></label>
         <label class="field"><span>rainbowSpeed</span>
           <input type="number" step="any" data-path="weapon.rainbowSpeed"
                  placeholder="0.5">
@@ -718,6 +1161,196 @@
             <option value="true">true</option>
           </select>
           <em>also recolor burning terrain, not just enemies</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">projectile trail
+        <span class="tag">add a streak behind the shot</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>how trails work here <span class="tag">read me first</span></span>
+          <em>Worth 30 seconds, because it explains every field below.
+              <br><br>The game has <b>no ribbon trails</b>. There is not one
+              <code>TrailRenderer</code> in PUNK, and not one prefab turns on
+              Unity's "Trails" module. Every trail in the game is the same
+              thing: a small <b>particle system</b> riding along with the shot,
+              dropping little sprite puffs <b>per unit travelled</b> and
+              leaving them behind in world space. So a trail is a line of
+              stamps, not a stretched ribbon - which is exactly why your own
+              sprites can be the puffs.
+              <br><br>Because it is measured per <i>distance</i> and not per
+              <i>second</i>, the streak stays the same density whether the shot
+              is fast or slow. That is why <code>perUnit</code> is the knob you
+              want and <code>perSecond</code> almost never is.
+              <br><br><b>Only 4 ammo prefabs ship a trail</b> (the Popper, the
+              Bolt, Blades and the enemy sniper). For everything else the mod
+              copies the Popper's trail onto your shot and then applies your
+              settings - so these fields work on any projectile, not just the
+              ones that already had one.
+              <br><br>Leave a field blank and it keeps the stock value:
+              lifetime 0.025s, size 0.8, 20 puffs per unit, drawn one sorting
+              order behind the bullet. Those are the real Popper/Bolt numbers,
+              so a bare <code>enabled: true</code> already looks like it
+              belongs in the game.</em></label>
+        <label class="field"><span>enabled</span>
+          <select data-path="weapon.trail.enabled" data-type="bool">
+            <option value="">(blank - no trail key written)</option>
+            <option value="true">true - give this shot a trail</option>
+            <option value="false">false - remove the template's trail</option>
+          </select>
+          <em><b>true</b> adds a trail with stock numbers (or keeps and retunes
+              one the template already had). <b>false</b> strips a trail off -
+              useful on the Popper or Bolt when your own art should fly clean.
+              You do not need to set this at all if you are filling in any
+              other field below: naming a sprite or a colour implies
+              true.</em></label>
+        <label class="field"><span>stock puff sprites (pick one)</span>
+          <select class="preset" data-preset-for="weapon.trail.sprite">
+            <option value="">-- pick a game particle --</option>
+            <option value="part_cyrcle_12">part_cyrcle_12 (the stock trail puff)</option>
+            <option value="part_cyrcle_4">part_cyrcle_4 (small dot)</option>
+            <option value="part_cyrcle_16">part_cyrcle_16 (fat blob)</option>
+            <option value="part_cyrcle_19">part_cyrcle_19 (biggest circle)</option>
+            <option value="part_engineFIre_0">part_engineFIre_0 (flame)</option>
+            <option value="part_impact_Bark_0">part_impact_Bark_0 (debris chip)</option>
+          </select>
+          <em>fills the sprite field below with one of the game's own particle
+              sprites. <code>part_cyrcle_0</code>&hellip;<code>_19</code> are
+              circles from tiny to fat - the stock trail uses
+              <code>_12</code>. (Yes, the game really spells it
+              "cyrcle".)</em></label>
+        <label class="field"><span>sprite <span class="tag">YOUR OWN ART</span></span>
+          <input type="text" data-path="weapon.trail.sprite"
+                 placeholder="myPuff, myPuffAnim, or part_cyrcle_12">
+          <em>what each puff is made of. Takes a name from your
+              <code>sprites</code> folder <b>or</b> any sprite in the game, and
+              the custom folder is searched first.
+              <br><br><b>An animation works here.</b> Name an
+              <code>&hellip;Anim</code> and the whole flipbook is loaded onto
+              the particle, so every single puff plays the full sequence over
+              its own lifetime and then dies. That is a genuinely different
+              look from an animated projectile - the shot stays still and the
+              <i>trail</i> churns. Same naming rules as
+              <code>projectileSprite</code>: a bare sheet name is one frozen
+              frame, <code>&lt;sheet&gt;Anim</code> is the flipbook.
+              <br><br>Leave blank to keep the stock puff. A name that is not
+              found is reported in the log and the stock puff is kept, so a
+              typo never leaves you with an invisible trail.</em></label>
+        <label class="field"><span>color (name, #hex, or rainbow)</span>
+          <input type="text" data-path="weapon.trail.color"
+                 placeholder="orange, #ff8844, or rainbow">
+          <em>tints the puffs, independently of
+              <code>projectileColor</code> - so a white bullet can trail
+              orange. Setting this <b>claims</b> the trail's colour: the shot's
+              own colour (and its rainbow, if any) will then leave the trail
+              alone instead of painting over it. <code>rainbow</code> cycles
+              just the trail.</em></label>
+        <label class="field"><span>rgbSpeed</span>
+          <input type="number" step="any" data-path="weapon.trail.rgbSpeed"
+                 placeholder="0.5">
+          <em>rainbow only: hue cycles per second for the trail (default
+              0.5)</em></label>
+        <label class="field"><span>perUnit <span class="tag">the main knob</span></span>
+          <input type="number" step="any" data-path="weapon.trail.perUnit"
+                 placeholder="20">
+          <em>puffs emitted per <b>world unit travelled</b> - the density of
+              the streak. Stock is <b>20</b>. Lower it for a dotted/beaded
+              look, raise it for a solid line. Because it is per distance, the
+              trail looks the same at any projectile speed.</em></label>
+        <label class="field"><span>lifetime</span>
+          <input type="number" step="any" data-path="weapon.trail.lifetime"
+                 placeholder="0.025">
+          <em>seconds each puff survives, which is what sets how <b>long</b>
+              the streak is. Stock is a startlingly short <b>0.025</b> - that
+              is why the Popper's trail is a tight little smear rather than a
+              comet tail. Try 0.2-0.5 for something you can actually see
+              trailing. 0 means every puff dies the instant it spawns; the log
+              warns if you do that.</em></label>
+        <label class="field"><span>size</span>
+          <input type="number" step="any" data-path="weapon.trail.size"
+                 placeholder="0.8">
+          <em>each puff's size in world units. Stock <b>0.8</b>. This is the
+              knob for a thick vs hairline trail. Note
+              <code>projectileScale</code> does <i>not</i> scale the trail -
+              the stock systems are set to ignore their parent's scale - so
+              size it here.</em></label>
+        <label class="field"><span>sizeEnd</span>
+          <input type="number" step="any" data-path="weapon.trail.sizeEnd"
+                 placeholder="0">
+          <em>size a puff has reached by the end of its life, in the same world
+              units as <code>size</code>. <b>0 tapers the trail to a point</b>,
+              which reads as speed. A value <i>larger</i> than
+              <code>size</code> makes each puff swell as it ages instead -
+              expanding smoke, or a contrail that widens behind the shot. Leave
+              blank for constant width.</em></label>
+        <label class="field"><span>fade</span>
+          <select data-path="weapon.trail.fade" data-type="bool">
+            <option value="">(blank - keep template)</option>
+            <option value="true">true - fade out over its life</option>
+            <option value="false">false - no fade</option>
+          </select>
+          <em><b>true</b> fades each puff to transparent as it ages, so the
+              streak dissolves behind the shot instead of stopping dead. Pairs
+              well with <code>sizeEnd: 0</code>. Safe to combine with
+              <code>color</code> - the fade is applied as pure alpha, so it
+              cannot muddy your tint.</em></label>
+        <label class="field"><span>speed</span>
+          <input type="number" step="any" data-path="weapon.trail.speed"
+                 placeholder="0">
+          <em>drift speed. Stock is <b>0</b> - puffs sit exactly where they
+              were dropped, which is what makes a clean line. Any non-zero
+              value scatters them outward in all directions instead, for smoke
+              or sparks. Small values (0.2-1) look like drifting exhaust;
+              large ones stop reading as a trail at all.</em></label>
+        <label class="field"><span>gravity</span>
+          <input type="number" step="any" data-path="weapon.trail.gravity"
+                 placeholder="0">
+          <em>gravity pull on the puffs once dropped. Positive falls, negative
+              rises (rising smoke). Stock 0. Only worth using with a longer
+              <code>lifetime</code>, or the puff dies before it has moved
+              anywhere.</em></label>
+        <label class="field"><span>perSecond</span>
+          <input type="number" step="any" data-path="weapon.trail.perSecond"
+                 placeholder="0">
+          <em>puffs per second, regardless of movement. Stock is <b>0</b> and
+              you usually want to leave it there - it makes the trail bunch up
+              when the shot is slow and thin out when it is fast, which is the
+              opposite of what a trail should do. Its one real use is a puff
+              that should keep emitting while the shot sits still. If both this
+              and <code>perUnit</code> are 0 nothing is emitted, and the log
+              says so.</em></label>
+        <label class="field"><span>fps</span>
+          <input type="number" step="any" data-path="weapon.trail.fps"
+                 placeholder="0">
+          <em>animated puffs only: play the flipbook at this fixed frame rate.
+              Left blank, the sequence is instead stretched across each puff's
+              <code>lifetime</code> so it always finishes exactly as the puff
+              dies - which is usually what you want, and it stays in step if
+              you change the lifetime later.</em></label>
+        <label class="field"><span>sortingOffset</span>
+          <input type="number" step="1" data-path="weapon.trail.sortingOffset"
+                 placeholder="-1">
+          <em>draw order relative to the projectile sprite. Default
+              <b>-1</b> = one step behind it, which is what the stock trails
+              do. Use <code>1</code> to draw the trail <i>over</i> the bullet
+              (occasionally right for a glow), or a bigger negative number to
+              push it further back.</em></label>
+        <label class="field"><span>template</span>
+          <input type="text" data-path="weapon.trail.template"
+                 placeholder="ammo_Popper">
+          <em>which prefab's trail to copy when your shot has none of its own.
+              Defaults to <code>ammo_Popper</code>. The only other stock trails
+              are on <code>ammo_Bolt</code>, <code>Ammo Blades</code> and
+              <code>Ammo Enemy Turret Sniper</code>, and all of them are set up
+              near-identically, so there is rarely a reason to change this. It
+              exists so a future prefab with a nicer trail can be borrowed
+              without a code change.</em></label>
+        <label class="field"><span>works with projectileSpriteOnly</span>
+          <em>Yes - deliberately. <code>projectileSpriteOnly: true</code>
+              silences every particle system on the shot, <i>then</i> the trail
+              is built back up, so "just my sprite, plus a trail I control" is
+              a legal and useful combination. Order in the file does not
+              matter.</em></label>
       </div>
     </details>
   </section>
@@ -800,8 +1433,17 @@
 
     <details class="block">
       <summary><input type="checkbox" class="gate">rangeData
-        <span class="tag">max travel distance</span></summary>
+        <span class="tag">max travel distance - STRAIGHT shots only</span></summary>
       <div class="fields grid">
+        <label class="field"><span>lobbed shots ignore this <span class="tag">NO-OP</span></span>
+          <em>If <b>usePhysics</b> is on, the game ignores this <i>whole
+              block</i>. A lobbed shot reads these values on launch, works out
+              a time-to-range, then never looks at it again - so range,
+              variance, slowDown, destroyWhenReached, spawnExplosion and
+              fireSub are all inert. A lob only ends by its
+              <b>lifetimeData</b> timer or by <b>impact</b>. Straight
+              (usePhysics off) shots use everything here
+              normally.</em></label>
         <label class="field"><span>enabled</span>
           <select data-path="weapon.rangeData.enabled" data-type="bool">
             <option value="true" selected>true</option><option value="false">false</option>
@@ -839,6 +1481,26 @@
           <em>fire the subEmitter weapon when the shot reaches max range
               (needs enabled + destroyWhenReached, and a subEmitter set
               below)</em></label>
+        <label class="field"><span>destroyEffect</span>
+          <input type="text" data-path="weapon.rangeData.destroyEffect"
+                 placeholder="EndParticle Ammo FlyZapper">
+          <em>effect spawned where the shot runs out of range. Separate from
+              impactBehaviour.destroyEffect (that one is for hitting
+              something) - set both if you want the shot to look right whether
+              it lands or fizzles. Needs destroyWhenReached.</em></label>
+        <label class="field"><span>destroyEffect presets</span>
+          <select class="preset" data-preset-for="weapon.rangeData.destroyEffect">
+            <option value="">-- pick a fizzle effect --</option>
+            <option value="EndParticle Ammo FlyZapper">EndParticle Ammo FlyZapper</option>
+            <option value="EndParticle Ammo ElectronRocket">EndParticle Ammo ElectronRocket</option>
+            <option value="EndParticle Ammo Toroid">EndParticle Ammo Toroid</option>
+            <option value="ImpactParticle Ammo Toroid">ImpactParticle Ammo Toroid</option>
+            <option value="Explosion Ammo Fireball">Explosion Ammo Fireball</option>
+            <option value="Explosion Ammo SoldierTech">Explosion Ammo SoldierTech</option>
+            <option value="DeathParticle Ammo Disc Disappear">DeathParticle Ammo Disc Disappear</option>
+            <option value="DeathParticle Weapon Worm">DeathParticle Weapon Worm</option>
+          </select>
+          <em>fills the field above</em></label>
       </div>
     </details>
 
@@ -854,9 +1516,39 @@
         <label class="field"><span>time</span>
           <input type="number" step="any" data-path="weapon.lifetimeData.time">
           <em>seconds</em></label>
-        <label class="field"><span>timeVariance</span>
+        <label class="field"><span>timeVariance <span class="tag">NO-OP</span></span>
           <input type="number" step="any" data-path="weapon.lifetimeData.timeVariance">
-          <em>Random +/- seconds on that lifespan.</em></label>
+          <em>DOES NOTHING - the game never reads it. It looks like the
+              randomiser rangeData.variance is, but the expiry check compares
+              the raw lifetimeData.time with no random term, for both plain
+              and lobbed shots. Left here only so a loaded template round-
+              trips; for a randomised despawn use rangeData
+              (range + variance) instead.</em></label>
+        <label class="field"><span>spawnOnTimeDown</span>
+          <input type="text" data-path="weapon.lifetimeData.spawnOnTimeDown"
+                 placeholder="Explosion Ammo Fireball">
+          <em>prefab spawned where the shot expires - a puff, a burst, a
+              lingering effect. Independent of spawnExplosion (that one deals
+              the explosion damage; this is the visual). Use the picker
+              below.</em></label>
+        <label class="field"><span>spawnOnTimeDown presets</span>
+          <select class="preset" data-preset-for="weapon.lifetimeData.spawnOnTimeDown">
+            <option value="">-- pick an end-of-life effect --</option>
+            <option value="Explosion Ammo Fireball">Explosion Ammo Fireball</option>
+            <option value="Explosion Ammo Marbles">Explosion Ammo Marbles</option>
+            <option value="Explosion Ammo FireRocket">Explosion Ammo FireRocket</option>
+            <option value="Explosion Ammo Rocket Soldier">Explosion Ammo Rocket Soldier</option>
+            <option value="EndParticle Ammo FlyZapper">EndParticle Ammo FlyZapper</option>
+            <option value="EndParticle Ammo ElectronRocket">EndParticle Ammo ElectronRocket</option>
+            <option value="EndParticle Ammo Toroid">EndParticle Ammo Toroid</option>
+            <option value="ImpactParticle Ammo SoldierTech">ImpactParticle Ammo SoldierTech</option>
+            <option value="ImpactParticle Ammo Flame">ImpactParticle Ammo Flame</option>
+            <option value="ImpactParticle Ammo Derbis">ImpactParticle Ammo Derbis</option>
+            <option value="DeathParticle Weapon Worm">DeathParticle Weapon Worm</option>
+          </select>
+          <em>fills the field above - these are the ones stock weapons
+              actually use, so they are guaranteed to be loaded and
+              findable by name</em></label>
         <label class="field"><span>spawnExplosion</span>
           <select data-path="weapon.lifetimeData.spawnExplosion" data-type="bool">
             <option value="">keep template</option>
@@ -1034,6 +1726,264 @@
     </details>
 
     <details class="block">
+      <summary><input type="checkbox" class="gate">homing
+        <span class="tag">bullets that curve onto enemies</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>why this exists <span class="tag">read me</span></span>
+          <em>The game HAS homing - <code>homingData</code> - but it only works
+              on <b>lobbed / physics</b> shots. <code>ProjectileWeapon</code>
+              hands <code>homingData</code> to the projectile <i>only</i> inside
+              its <code>usePhysics</code> branch, so a fast straight bullet like
+              the Popper's can never home with stock data no matter what you put
+              in the file. Stock homing is also a <i>rigidbody</i> model
+              (torque, angular velocity, thrust) that a plain bullet has no
+              parts for.
+              <br><br>This block is homing for the <b>plain</b> projectile
+              instead. It steers by rotating the shot's velocity, and there's a
+              happy accident in how the game is built that makes this the
+              <i>right</i> way round: a plain projectile's collision sweep is
+              built <b>from its velocity</b> every frame
+              (<code>CircleCast(pos, radius, Velocity, …)</code>), so bending
+              the velocity bends <b>the hitbox too</b>, automatically. No second
+              raycast to keep in sync - which is exactly what makes bending a
+              hitscan beam hard by comparison.
+              <br><br><b>Use it with a high fire rate and a segment sprite</b>
+              to get a curving beam made of shots. See the sizing note at the
+              bottom of this block.
+              <br><br>On a <code>usePhysics</code> weapon this is refused with a
+              log line pointing you at <code>homingData</code>
+              instead.</em></label>
+        <label class="field"><span>enabled</span>
+          <select data-path="homing.enabled" data-type="bool">
+            <option value="">&mdash; (on if any field below is set)</option>
+            <option value="true">true - curve toward enemies</option>
+            <option value="false">false - off, keeping the settings below</option>
+          </select>
+          <em>turns it on with defaults (turnRate 180, range 20, cone 90).
+              Filling in <i>any</i> field below also switches it on, so this is
+              only strictly needed when you want the defaults untouched - or
+              when you want <b>false</b>, which parks the feature without
+              throwing your numbers away. (Writing <code>"homing": true</code>
+              by hand works as a shorthand too.)</em></label>
+        <label class="field"><span>turnRate <span class="tag">the main dial</span></span>
+          <input type="number" step="any" data-path="homing.turnRate"
+                 placeholder="180">
+          <em>degrees per second the heading may swing. <b>This is the dial that
+              decides everything</b>, and it interacts with speed in a way worth
+              knowing: what you actually see is the turn <i>radius</i>, which is
+              <code>speed / turnRate</code> (in radians). So the same turnRate
+              that whips a slow shot around barely bends a fast one.
+              <br>At <code>projectileSpeed</code> 30: turnRate 180 gives a
+              ~9.5-unit turn radius (a nice visible arc), 360 gives ~4.8 (a
+              hard chase), 90 gives ~19 (almost straight). The mod logs the
+              computed radius for your actual numbers, and warns when it comes
+              out too wide to see.</em></label>
+        <label class="field"><span>range</span>
+          <input type="number" step="any" data-path="homing.range"
+                 placeholder="20">
+          <em>how far the shot looks for something to chase, in world units.
+              Only things the projectile could actually <i>hit</i> count, and
+              never terrain.</em></label>
+        <label class="field"><span>cone</span>
+          <input type="number" step="any" data-path="homing.cone"
+                 placeholder="90">
+          <em>only acquire a target within this many degrees of where the shot
+              is already going, so bullets don't turn round and fly backwards.
+              Default 90 (a wide forward arc). 180 means anything, including
+              behind you. Narrow it (30-45) for shots that only lock onto what
+              you were roughly aiming at, which keeps a stream sweeping smoothly
+              instead of snapping sideways.</em></label>
+        <label class="field"><span>delay</span>
+          <input type="number" step="any" data-path="homing.delay"
+                 placeholder="0">
+          <em>seconds of dead-straight flight before homing kicks in.
+              <b>Small values read really well on a beam-like stream</b> - it
+              leaves the muzzle straight and only bends further out, which looks
+              deliberate rather than wobbly. Try 0.1-0.2.</em></label>
+        <label class="field"><span>maxTurn</span>
+          <input type="number" step="any" data-path="homing.maxTurn"
+                 placeholder="0">
+          <em>total degrees this shot may <i>ever</i> turn. 0 = no limit. A
+              budget (say 90) stops a shot that missed from circling forever and
+              coming back at you - it commits to one graceful curve and then
+              flies straight.</em></label>
+        <label class="field"><span>retarget</span>
+          <select data-path="homing.retarget" data-type="bool">
+            <option value="">true (default)</option>
+            <option value="true">true - find a new target if it dies</option>
+            <option value="false">false - one target, then fly straight</option>
+          </select>
+          <em>with a high fire rate and enemies dying constantly, true keeps the
+              stream latched onto whatever is still alive. false is calmer and
+              slightly cheaper.</em></label>
+        <label class="field"><span>predict</span>
+          <select data-path="homing.predict" data-type="bool">
+            <option value="">false</option>
+            <option value="true">true - lead the target</option>
+          </select>
+          <em>aim where the target is <i>going</i> rather than where it is,
+              using the game's own aim-assist velocity. Better against movers;
+              on a slow shot against a fast mover it can overshoot and
+              weave.</em></label>
+        <label class="field"><span>faceTravel</span>
+          <select data-path="homing.faceTravel" data-type="bool">
+            <option value="">true (default)</option>
+            <option value="true">true - sprite follows the curve</option>
+            <option value="false">false - keep original rotation</option>
+          </select>
+          <em>rotate the sprite to match the new heading each frame. Needed for
+              any art with a nose, and essential for a segment stream to read as
+              one continuous curve. Turn it off for a round blob, or if you want
+              a spin from <code>rotationData</code> to
+              survive.</em></label>
+        <label class="field"><span>making it look like a BEAM <span class="tag">recipe</span></span>
+          <em>The spacing between shots is
+              <code>projectileSpeed / fireRate</code>, and the beam looks
+              continuous when your sprite is at least that long. The game runs
+              at <b>20 pixels per world unit</b>, so:
+              <br>&bull; speed 30, fireRate 20 &rarr; 1.5 units apart &rarr;
+              needs a sprite about <b>30 px</b> long.
+              <br>&bull; speed 24, fireRate 30 &rarr; 0.8 units apart &rarr;
+              about <b>16 px</b>.
+              <br>Shorter than that and you get a dotted line - which, with the
+              right art, is its own good look.
+              <br><br>Also worth setting: <code>piercingData.enabled</code> true
+              so the stream doesn't stop dead on the first enemy (a real beam
+              doesn't), a small <code>cost</code> because you're firing many
+              times a second, and <code>repeatMinDelay</code> in your custom
+              shoot sound's .json so it doesn't machine-gun into
+              noise.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">ricochet
+        <span class="tag">bullets that bounce off things</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>what's yours and what's the game's <span class="tag">read me</span></span>
+          <em>The <b>bouncing</b> is the game's own - <code>ProjectileBounceData</code>
+              - and so is picking which surfaces bounce. Usefully, the damage
+              call happens <i>before</i> the bounce, so a shot that ricochets
+              off an enemy <b>has already hurt it</b>. Only two stock weapons
+              use any of this (CrossRedElectron Bouncer and SoldierTech, both
+              terrain-only).
+              <br><br>What the game has <b>no concept of is a bounce
+              count</b> - nothing anywhere tracks reflections, so a stock
+              bouncer bounces <i>forever</i> until range or lifetime kills it.
+              The limit, the falloff, the scatter and the seeking are the parts
+              this adds.
+              <br><br>Plain projectiles only. Lobbed / <code>usePhysics</code>
+              shots have no bounce code at all, so it's refused with a log
+              line.</em></label>
+        <label class="field"><span>enabled</span>
+          <select data-path="ricochet.enabled" data-type="bool">
+            <option value="">&mdash; (on if any field below is set)</option>
+            <option value="true">true - bounce</option>
+            <option value="false">false - off, keeping the settings below</option>
+          </select>
+          <em>filling in any field below also switches it on. (Writing
+              <code>"ricochet": true</code> by hand works as a
+              shorthand.)</em></label>
+        <label class="field"><span>targets</span>
+          <select data-path="ricochet.targets">
+            <option value="">terrain (default)</option>
+            <option value="terrain">terrain - bounce off walls only</option>
+            <option value="enemies">enemies - bounce off enemies only</option>
+            <option value="both">both - walls and enemies</option>
+            <option value="none">none - turn bouncing off</option>
+          </select>
+          <em>what the shot bounces off. Under the hood this is the game's
+              bounce layer mask, resolved by layer <i>name</i> so it can't
+              silently retarget: terrain is <code>Ground</code>, enemies are
+              <code>Entities</code>. <b>terrain</b> is the classic
+              wall-bouncer. <b>enemies</b> makes shots skip between targets
+              like a stone across water. <b>none</b> exists so you can park the
+              feature without deleting your settings.</em></label>
+        <label class="field"><span>bounces</span>
+          <input type="text" data-path="ricochet.bounces" placeholder="3">
+          <em>how many bounces before the shot is done. A <b>number</b>, or
+              <code>infinite</code> (also accepts <code>unlimited</code> /
+              <code>-1</code>). Default <b>3</b>.
+              <br><b>Careful with infinite:</b> that's the stock behaviour, and
+              with no <code>rangeData</code> or <code>lifetimeData</code> the
+              shots never die and pile up. The mod warns in the log if you set
+              infinite with no way to expire - give it something like
+              <code>"lifetimeData": { "enabled": true, "time": 3 }</code>.</em></label>
+        <label class="field"><span>when the bounces run out</span>
+          <em>The shot runs the weapon's own <code>impactBehaviour</code> on
+              that final hit and is then destroyed. So if you've set
+              <code>spawnExplosion</code> or a <code>subEmitter</code>, the last
+              bounce goes off with a bang; with nothing set it simply vanishes.
+              Nothing to configure here - it reuses the impact machinery you
+              already have rather than adding a second one.</em></label>
+        <label class="field"><span>seek <span class="tag">smart bounce</span></span>
+          <select data-path="ricochet.seek" data-type="bool">
+            <option value="">false - true mirror reflection</option>
+            <option value="true">true - aim each bounce at an enemy</option>
+          </select>
+          <em>Off, a bounce is honest physics: it mirrors off the surface and
+              goes wherever the geometry sends it, which is often nowhere.
+              <b>On</b>, each bounce is redirected at the nearest valid enemy
+              instead - this is what makes a ricochet reliably "hit something
+              else". It reuses the same target-finding as
+              <code>homing</code>, so it agrees on what counts as a target and
+              never picks terrain or your own side.</em></label>
+        <label class="field"><span>seekRange</span>
+          <input type="number" step="any" data-path="ricochet.seekRange"
+                 placeholder="20">
+          <em>seek only: how far to look for the next victim, from the bounce
+              point.</em></label>
+        <label class="field"><span>seekCone</span>
+          <input type="number" step="any" data-path="ricochet.seekCone"
+                 placeholder="180">
+          <em>seek only: how far off the <i>true</i> reflected heading the
+              redirect may pull, in degrees. Default 180 = anywhere, including
+              straight back where it came from. Lower it (60-90) to keep the
+              bounce looking physically plausible while still
+              cheating.</em></label>
+        <label class="field"><span>scatter</span>
+          <input type="number" step="any" data-path="ricochet.scatter"
+                 placeholder="0">
+          <em>degrees of random angle added to each bounce. Besides making
+              ricochets feel chaotic rather than geometric, this is the
+              practical <b>escape from a shot trapped between two parallel
+              walls</b>, which a perfect mirror bounce would ping between until
+              it expires. Try 5-15.</em></label>
+        <label class="field"><span>speedMultiplier</span>
+          <input type="number" step="any" data-path="ricochet.speedMultiplier"
+                 placeholder="1">
+          <em>fraction of speed kept per bounce. <b>1 = arcade</b> (the
+              default, and what the stock bouncers do). 0.8 keeps 80% each
+              time, so a long chain visibly winds down like it's losing energy.
+              Note a slowing shot also curves <i>tighter</i> if you've got
+              <code>homing</code> on, since turn radius scales with speed -
+              which happens to look right.</em></label>
+        <label class="field"><span>damageMultiplier</span>
+          <input type="number" step="any" data-path="ricochet.damageMultiplier"
+                 placeholder="1">
+          <em>fraction of damage kept per bounce. <b>1 = no falloff</b>
+              (default). Use it as a balance lever if an infinite bouncer in a
+              tight corridor turns out to be absurd - 0.7 makes the fourth hit
+              worth about a third of the first.</em></label>
+        <label class="field"><span>pierceWins</span>
+          <select data-path="ricochet.pierceWins" data-type="bool">
+            <option value="">&mdash; (defaults to false)</option>
+            <option value="false">false - ricochet wins (piercing turned off)</option>
+            <option value="true">true - keep piercing, bounce off terrain only</option>
+          </select>
+          <em><b>Only matters if you also have <code>piercingData</code>
+              on.</b> The game checks piercing <i>before</i> bouncing and
+              returns early, so a pierced enemy is never bounced off - the two
+              can't both apply to the same hit. Terrain is exempt from that
+              early-out, so walls bounce either way.
+              <br><b>false</b> (default): you asked for ricochet, so piercing
+              is switched off and the log says why. <b>true</b>: piercing is
+              kept, shots pass through enemies, and only terrain
+              ricochets.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
       <summary><input type="checkbox" class="gate">movementNoiseData
         <span class="tag">organic wobble (free, built-in)</span></summary>
       <div class="fields grid">
@@ -1103,6 +2053,44 @@
           </select>
           <em>fire the subEmitter weapon on impact - works on enemies AND
               terrain (needs enabled, and a subEmitter set below)</em></label>
+        <label class="field"><span>destroyEffect</span>
+          <input type="text" data-path="weapon.impactBehaviour.destroyEffect"
+                 placeholder="ImpactParticle Ammo Popper">
+          <em>the HIT effect - spawned where the shot dies, rotated along the
+              bounce direction. 42 of 80 stock weapons set it, and it is the
+              single biggest reason a forged weapon can feel flat: without it
+              shots just vanish. Purely cosmetic (no damage). Use the
+              picker.</em></label>
+        <label class="field"><span>destroyEffect presets</span>
+          <select class="preset" data-preset-for="weapon.impactBehaviour.destroyEffect">
+            <option value="">-- pick an impact effect --</option>
+            <option value="ImpactParticle Ammo Popper">ImpactParticle Ammo Popper (small spark)</option>
+            <option value="ImpactParticle Ammo Fly">ImpactParticle Ammo Fly</option>
+            <option value="ImpactParticle Ammo Flame">ImpactParticle Ammo Flame</option>
+            <option value="ImpactParticle Ammo Toroid">ImpactParticle Ammo Toroid</option>
+            <option value="ImpactParticle Ammo FlyZapper">ImpactParticle Ammo FlyZapper</option>
+            <option value="ImpactParticle Ammo Derbis">ImpactParticle Ammo Derbis</option>
+            <option value="ImpactParticle Ammo Worm">ImpactParticle Ammo Worm</option>
+            <option value="ImpactParticle Ammo Cross">ImpactParticle Ammo Cross</option>
+            <option value="ImpactParticle Ammo CrossAlpha">ImpactParticle Ammo CrossAlpha</option>
+            <option value="Explosion Ammo Marbles">Explosion Ammo Marbles (bigger)</option>
+            <option value="Explosion Ammo Fireball">Explosion Ammo Fireball</option>
+            <option value="Explosion Ammo SoldierTech">Explosion Ammo SoldierTech</option>
+            <option value="Explosion Ammo Rocket Soldier">Explosion Ammo Rocket Soldier</option>
+            <option value="Explosion Ammo Fish">Explosion Ammo Fish</option>
+            <option value="EndParticle Ammo ElectronRocket">EndParticle Ammo ElectronRocket</option>
+            <option value="DeathParticle Ammo Disc">DeathParticle Ammo Disc</option>
+          </select>
+          <em>fills the field above - all of these are referenced by stock
+              weapons, so they are loaded and findable by name</em></label>
+        <label class="field"><span>destroyVelocityThreshold <span class="tag">NO-OP here</span></span>
+          <input type="number" step="any"
+                 data-path="weapon.impactBehaviour.destroyVelocityThreshold">
+          <em>LOBBED SHOTS ONLY (usePhysics). A plain projectile never reads
+              it - its impact code has no speed test - so on a normal weapon
+              this does nothing. On a lobbed shot it is the speed below which
+              the shot stops surviving impacts (Dandelion Sub uses
+              30).</em></label>
       </div>
     </details>
 
@@ -1172,6 +2160,29 @@
             <option>Resource Fuel</option><option>Resource Tech</option>
           </select>
           <em>Resource/element the zap damage counts as.</em></label>
+        <label class="field"><span>layerMask</span>
+          <input type="text" data-path="weapon.electricityData.layerMask"
+                 placeholder="Entities">
+          <em>which layers the conductor may link into and damage. Accepts a
+              layer name, a list of names, or a raw bitmask. Same trap as the
+              discharge mask: <b>a typo silently means "conducts to
+              nothing"</b>, with no warning anywhere.</em></label>
+        <label class="field"><span>limitedCharge</span>
+          <select data-path="weapon.electricityData.limitedCharge" data-type="bool">
+            <option value="">keep template</option>
+            <option value="true">true</option><option value="false">false</option>
+          </select>
+          <em>turns the shot's electricity into a finite battery instead of an
+              endless source: it starts at maxCharge and drains as it
+              conducts, so the arc eventually dies. Stock users: Electron
+              Circuit and 5 others. Useless on its own - always set maxCharge
+              too, or you get a conductor that is dead on
+              arrival.</em></label>
+        <label class="field"><span>maxCharge</span>
+          <input type="number" step="any" data-path="weapon.electricityData.maxCharge">
+          <em>the size of that battery, and the amount it starts full at.
+              Ignored unless limitedCharge is true. Electron Circuit uses
+              5.</em></label>
       </div>
     </details>
 
@@ -1256,11 +2267,90 @@
             <option value="">keep template</option>
             <option value="None">None</option>
             <option value="WhenShot">WhenShot</option>
-            <option value="Continuous">Continuous</option>
+            <option value="Continuous">Continuous (NO-OP)</option>
           </select>
-          <em>None = never turn; WhenShot = aim it once at launch;
-              Continuous = keep it pointed along its path (needed if the
-              shot curves, e.g. wave or homing).</em></label>
+          <em><b>WhenShot</b> is the only mode that does anything: the shot is
+              turned to face its direction once, at launch. <b>None</b> leaves
+              the prefab's own rotation alone. <b>Continuous</b> is a dead
+              enum value - the game reads rotationData in exactly one place
+              and only tests for WhenShot, so a curving shot (wave, noise)
+              will NOT keep re-aiming no matter what you put here. If you need
+              a spinning shot, use a projectile prefab whose art spins on its
+              own (Blades, Disc).</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">what applies to a NORMAL projectile
+        <span class="tag">read me - the plain bullet type (Popper / Bolt / Shotgun)</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>what "normal" means</span>
+          <em>A normal weapon is this Projectile type with <b>usePhysics</b>
+              OFF: it fires a shot that flies dead straight at a fixed speed
+              and is moved by a swept circle-cast every physics step. It is by
+              far the most flexible type - the full option set applies. Stock
+              examples: White Popper (fireRate 7, damage 1, speed 100, range
+              15), White Bolt (fireRate 0.7, damage 4, speed 200, range 20,
+              knockback 270), White Shotgun (fireRate 1.3, damage 1 x
+              projectileCount 10, spread 20, range 9).</em></label>
+
+        <label class="field"><span>spread vs angleVariance <span class="tag">important</span></span>
+          <em>These are NOT the same knob and the difference bites everyone.
+              <b>spread</b> is the total width of an evenly-spaced FAN and it
+              is <u>completely ignored when projectileCount is 1</u> - so the
+              stock Popper's spread of 7 and Bolt's 10 do literally nothing
+              until a +projectile module lands, at which point they suddenly
+              fan out. <b>angleVariance</b> is the random wobble applied to
+              every shot independently, so THAT is your inaccuracy knob for a
+              single-shot weapon. Want a shotgun? spread. Want a rattly
+              machine gun? angleVariance.</em></label>
+        <label class="field"><span>the spread fan, exactly</span>
+          <em>With count &gt; 1 the shots start at <code>-spread/2 +
+              angleOffset</code> and step by <code>spread / (count - 1)</code>,
+              so the first and last shot sit exactly on the edges. The one
+              special case is <b>spread: 360</b>, which steps by
+              <code>spread / count</code> instead - that is what stops a full
+              circle from doubling up two shots at the same
+              angle.</em></label>
+        <label class="field"><span>fractional projectileCount</span>
+          <em>projectileCount is a float and the loop runs "while i &lt;
+              count", so 2.5 fires <b>3</b> shots, not 2 - and the fan spacing
+              is computed from the fractional value, so the last shot lands
+              short of the edge. Whole numbers unless you want that.</em></label>
+
+        <label class="field"><span>WORKS</span>
+          <em>Everything in this section: rangeData, lifetimeData,
+              impactBehaviour, piercingData, projectileBounceData,
+              movementNoiseData, rotationData (WhenShot only),
+              velocityInfluenceData, electricityData, plus explosion,
+              discharge, aimAssistData, subEmitter, and all the Forge extras -
+              wave, orbit, phasing, pierce cap, turret. Also the whole "sound,
+              shake &amp; muzzle" block above.</em></label>
+        <label class="field"><span>does NOTHING on this type</span>
+          <em>&bull; <b>homingData</b> - missiles need usePhysics; a straight
+              projectile has no homing code at all.<br>
+              &bull; <b>physicsProjectilePrefab</b> - only read when usePhysics
+              is on.<br>
+              &bull; <b>lifetimeData.timeVariance</b> - never read by anything;
+              use rangeData variance.<br>
+              &bull; <b>rotationData.orientationAlignment: Continuous</b> -
+              dead enum value.<br>
+              &bull; <b>impactBehaviour.destroyVelocityThreshold</b> - lobbed
+              shots only.<br>
+              &bull; <b>cellConvertData</b> - only hitscan beams terraform.<br>
+              &bull; <b>maxRotationSpeedWhileShooting</b> - reads as an aim
+              clamp, but only the enemy AI aimer uses it; the player ship aims
+              through a separate component that ignores it, so it does nothing
+              on anything you can build. Not offered for that reason.<br>
+              &bull; <b>rayWidth / layerMask / visual</b> - hitscan
+              fields.<br>
+              &bull; <b>minionPrefab</b> and friends - minion spawners
+              only.</em></label>
+        <label class="field"><span>the one that is easy to miss</span>
+          <em>A shot's <b>damageRepeatDelay</b> lives in
+              <code>piercingData.damageRepeatDelay</code>, not at the top
+              level - the top-level one is the hitscan beam's tick rate and
+              only exists on that type.</em></label>
       </div>
     </details>
   </section>
@@ -1296,6 +2386,131 @@
         <em>the beam's look - swap in another laser's visual prefab by
             name.</em></label>
     </div>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">beam art
+        <span class="tag">YOUR OWN BEAM SPRITES</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>how a beam is drawn <span class="tag">read me first</span></span>
+          <em>This matters, because it decides what is and isn't possible.
+              <br><br>A beam is <b>one single stretched quad</b>. Each frame the
+              game puts a SpriteRenderer at the barrel, rotates it toward
+              wherever the ray landed, and sets its <b>width to the whole
+              distance</b>. One sprite, one rectangle, from muzzle to target.
+              <br><br>Two consequences:
+              <br>&bull; A beam <b>cannot bend</b> as it stands. There is
+              nowhere for a curve to live in a single quad - a bending beam has
+              to be a <i>chain</i> of short quads, which is a separate feature
+              built on top of this one. This block is that foundation: it is
+              what teaches the mod to load and place beam art at all.
+              <br>&bull; A beam <b>cannot animate</b> by flipbook. Use
+              <code>tiling: "repeat"</code> for the illusion of movement
+              instead.
+              <br><br><b>The pivot trap, handled for you.</b> Every stock beam
+              sprite is authored with its pivot on the <b>left edge</b>, because
+              the quad grows rightward from the muzzle. The Sprite Sheet Builder
+              writes a <i>centred</i> pivot, which is right for a bullet and
+              wrong for a beam - it would hang half the beam out behind your
+              ship. The mod rebuilds your sprite with a left pivot
+              automatically, so <b>one sprite works as both a bullet and a
+              beam</b> and you don't need to touch the manifest.
+              <br><br>Draw your beam art pointing <b>right</b>, as a horizontal
+              strip. It is stretched along X, so a tall narrow sprite becomes a
+              long thin beam.</em></label>
+        <label class="field"><span>sprite <span class="tag">YOUR OWN ART</span></span>
+          <input type="text" data-path="weapon.beam.sprite"
+                 placeholder="myBeam or Sprite_Lazer_6_0">
+          <em>the firing beam itself. Takes a name from your
+              <code>sprites</code> folder or any sprite in the game (custom
+              folder searched first). The stock ones are
+              <code>Sprite_Lazer_6_0</code> through <code>_6_0_3</code> - all
+              tiny, 8&times;8 px, because they get stretched.
+              <br>Naming an animation only uses its first frame, and says so in
+              the log.</em></label>
+        <label class="field"><span>tiling</span>
+          <select data-path="weapon.beam.tiling">
+            <option value="">keep template (stretch)</option>
+            <option value="stretch">stretch - one sprite pulled to length</option>
+            <option value="repeat">repeat - sprite tiled along the beam</option>
+          </select>
+          <em><b>stretch</b> is what every stock beam does: the sprite is pulled
+              from muzzle to target, so an 8px sprite becomes a smooth
+              gradient. Good for a plain energy beam.
+              <br><b>repeat</b> tiles the sprite along the beam at its true
+              size instead, so a <i>segment</i> of art repeats over and over -
+              this is the one for a beam made of visible chunks, links or
+              chevrons, and it's what makes a beam read as flowing rather than
+              static. Needs art that tiles seamlessly left-to-right.
+              <br>("simple" isn't offered: that draw mode ignores the
+              renderer's size, and size is the only thing making the beam reach
+              its target, so the beam would be a stub at the
+              muzzle.)</em></label>
+        <label class="field"><span>thickness</span>
+          <input type="number" step="any" data-path="weapon.beam.thickness"
+                 placeholder="0.4">
+          <em>beam thickness in world units. Stock beams are <b>0.4</b>
+              (the Crawler's is 1.5). This is the <i>visual</i> thickness only -
+              <code>rayWidth</code> is the separate hit thickness, and the two
+              are worth keeping roughly in step or the beam will look like it
+              misses. <code>projectileScale</code> also scales this if you'd
+              rather multiply than set.</em></label>
+        <label class="field"><span>warmupSprite</span>
+          <input type="text" data-path="weapon.beam.warmupSprite"
+                 placeholder="myCharge">
+          <em>the thin beam shown while the shot is <i>charging</i>, before it
+              fires - only visible if the weapon has a
+              <code>warmupTime</code>. Separate renderer, separate sprite, and
+              the stock ones are always tiled.</em></label>
+        <label class="field"><span>warmupThickness</span>
+          <input type="number" step="any" data-path="weapon.beam.warmupThickness"
+                 placeholder="0.4">
+          <em>thickness of that charge-up beam. Stock 0.4 on all four beam
+              prefabs.</em></label>
+        <label class="field"><span>impactSprite <span class="tag">hit spark</span></span>
+          <input type="text" data-path="weapon.beam.impactSprite"
+                 placeholder="mySpark or mySparkAnim">
+          <em>the spark where the beam lands. This one <b>is</b> a particle
+              system, so unlike the beam itself it <i>can</i> animate - name an
+              <code>...Anim</code> and every spark plays the whole flipbook.
+              The beam's own hit-spark art from a sprite sheet goes
+              here.</em></label>
+        <label class="field"><span>impactFps</span>
+          <input type="number" step="any" data-path="weapon.beam.impactFps"
+                 placeholder="0">
+          <em>animated spark only: fixed frame rate. Blank spreads the sequence
+              over each spark's lifetime so it finishes as the spark
+              dies.</em></label>
+        <label class="field"><span>glow</span>
+          <select data-path="weapon.beam.glow" data-type="bool">
+            <option value="">keep template</option>
+            <option value="false">false - draw art as painted</option>
+            <option value="true">true - emissive glow</option>
+          </select>
+          <em><b>Every stock beam uses the emissive shader</b>
+              (<code>EmissiveUnlitSprite</code>), which is right for a glowing
+              energy bar but blows detailed art out toward white. So if your
+              custom beam art looks washed out or recoloured, this is the fix,
+              exactly like <code>projectileGlow</code> for bullets. Set
+              <code>false</code> for art you want drawn as
+              painted.</em></label>
+        <label class="field"><span>material</span>
+          <input type="text" data-path="weapon.beam.material"
+                 placeholder="SpriteUnlitAA">
+          <em>escape hatch - name any material asset. The three in play are
+              <code>EmissiveUnlitSprite</code> (stock),
+              <code>EmissiveUnlitSpriteBright</code> (the Crawler's, brighter
+              still) and <code>SpriteUnlitAA</code> (as painted). Overrides
+              <code>glow</code>.</em></label>
+        <label class="field"><span>offset</span>
+          <input type="number" step="any" data-path="weapon.beam.offset"
+                 placeholder="0.2">
+          <em>extra length added past the hit point, and also how far the hit
+              spark sits beyond it. Stock <b>0.2</b> on all four prefabs. Raise
+              it if your art has a soft or capped end that shouldn't stop
+              short; lower it toward 0 for a beam that ends exactly on the
+              target.</em></label>
+      </div>
+    </details>
 
     <details class="block">
       <summary><input type="checkbox" class="gate">cellConvertData
@@ -1473,15 +2688,26 @@
           <input type="text" data-path="weapon.subEmitter"
                  placeholder="Forge Weapon My Sub">
           <em>name of ANOTHER weapon to fire when this shot expires or
-              hits. Use a stock weapon name, or one of YOUR WeaponForge
-              weapons - for those the name is
-              <b>"Forge Weapon " + the "name" field</b> from its .json
-              (e.g. name "White Popper Sub" &rarr;
-              "Forge Weapon White Popper Sub").</em></label>
+              hits. For one of YOUR weapons just use its <code>name</code>
+              field - both <code>"Cocktail Flame"</code> and the full
+              <code>"Forge Weapon Cocktail Flame"</code> resolve to the same
+              thing. For a stock one use the asset name, e.g.
+              <code>Weapon Caps Flame</code>.
+              <br><br><b>File order does not matter.</b> Sub names are
+              resolved after every weapon file has been built, so your sub
+              can live in a file that sorts either side of the weapon using
+              it. (It used to matter and failed silently - if you see an
+              older guide telling you to prefix files <code>00_</code>,
+              <code>01_</code>, that is why; harmless but no longer
+              needed.) A sub pointing at itself is caught and
+              ignored.</em></label>
         <label class="field"><span>1. turn on a trigger</span>
           <em>the subEmitter does NOTHING until you set <b>fireSub: true</b>
               on at least one trigger above:<br>
-              &bull; <b>rangeData.fireSub</b> - when it reaches max range<br>
+              &bull; <b>rangeData.fireSub</b> - when it reaches max range.
+              STRAIGHT shots only. A <b>lobbed</b> (usePhysics) shot ignores
+              the <i>entire</i> rangeData block, so use
+              <b>lifetimeData.fireSub</b> there instead.<br>
               &bull; <b>lifetimeData.fireSub</b> - when its timer runs out<br>
               &bull; <b>impactBehaviour.fireSub</b> - on impact (enemies AND
               terrain)</em></label>
@@ -1912,6 +3138,15 @@
         delete ex.damageAmount;
         delete ex.damageType;
       }
+      // The game reads damages[0] unconditionally when it spawns a blast, so
+      // a radius with no damage entry is a hard error, not a dud explosion.
+      // The template may still supply one, hence a warning rather than a fix.
+      if (ex.radius > 0 && !ex.damages) {
+        warn.push("⚠ explosion.radius is set but no damage amount/type - " +
+                  "the game reads the first damage entry unconditionally and " +
+                  "will error unless the template already has one. Set an " +
+                  "explosion damage amount.");
+      }
     }
 
     prune(out);
@@ -1993,6 +3228,19 @@
       }
       refresh();
     });
+
+  // Generic "pick a known asset" dropdowns: any select.preset fills the
+  // free-text field whose data-path it names. Keeps the sfx / effect-prefab
+  // pickers from each needing their own handler.
+  var presetPickers = document.querySelectorAll("select.preset[data-preset-for]");
+  for (var pp = 0; pp < presetPickers.length; pp++) {
+    presetPickers[pp].addEventListener("change", function () {
+      var target = document.querySelector(
+        '[data-path="' + this.getAttribute("data-preset-for") + '"]');
+      if (target && this.value) target.value = this.value;
+      refresh();
+    });
+  }
 
   document.getElementById("btn-copy").addEventListener("click", function () {
     var text = output.textContent;

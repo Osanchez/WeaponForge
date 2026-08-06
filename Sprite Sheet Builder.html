@@ -1,0 +1,2079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PUNK Sprite Sheet Builder</title>
+<style>
+  :root {
+    --bg: #0d0d11; --panel: #16161d; --panel2: #1d1d27;
+    --line: #2c2c3a; --text: #e8e8f0; --dim: #9a9ab0;
+    --accent: #7fd4ff; --accent2: #ffd27f; --bad: #ff7f7f;
+    --good: #8fe38f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    padding: 14px 24px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  header h1 {
+    margin: 0; font-size: 20px; letter-spacing: 3px; color: var(--accent);
+  }
+  header p { margin: 4px 0 0; color: var(--dim); }
+  .layout { display: flex; align-items: stretch; height: calc(100vh - 74px); }
+  #left { flex: 1.4; display: flex; flex-direction: column; min-width: 380px; }
+  #right {
+    flex: 1; overflow-y: auto; padding: 14px 18px 60px;
+    border-left: 1px solid var(--line); background: var(--panel);
+    min-width: 360px;
+  }
+  .bar {
+    display: flex; gap: 8px; padding: 10px 14px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+    align-items: center;
+  }
+  button {
+    background: var(--accent); color: #04141c; border: 0;
+    padding: 8px 14px; font-weight: 700; cursor: pointer;
+    border-radius: 4px; font-size: 13px; letter-spacing: 1px;
+  }
+  button:hover { filter: brightness(1.15); }
+  button:disabled { opacity: .4; cursor: default; filter: none; }
+  button.secondary {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line);
+  }
+  button.danger { background: var(--panel2); color: var(--bad);
+    border: 1px solid var(--line); }
+  input[type=text], input[type=number], select {
+    background: #0b0b0f; color: var(--text); border: 1px solid var(--line);
+    border-radius: 4px; padding: 6px 8px; font: inherit; width: 100%;
+  }
+  input[type=number] { width: 5.5em; }
+  label.f { display: flex; flex-direction: column; gap: 3px; font-size: 12px;
+    color: var(--dim); }
+  label.f span { letter-spacing: .5px; text-transform: uppercase;
+    font-size: 10.5px; }
+  section {
+    background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 6px; margin: 0 0 12px; padding: 12px 14px;
+  }
+  section h2 {
+    margin: 0 0 10px; font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+  em { color: var(--dim); font-style: normal; font-size: 12px;
+    display: block; margin-top: 4px; }
+
+  /* --- canvas stage --- */
+  #stage {
+    flex: 1; overflow: auto; padding: 20px;
+    background:
+      repeating-conic-gradient(#191922 0% 25%, #101017 0% 50%) 0 0 / 16px 16px;
+  }
+  #inner { position: relative; transform-origin: 0 0; }
+  #sheet { display: block; image-rendering: pixelated; }
+  .rect {
+    position: absolute; border: 1px solid var(--accent);
+    box-shadow: 0 0 0 1px #000a inset; pointer-events: none;
+  }
+  .rect.sel { border-color: var(--accent2); background: #ffd27f22; }
+  .rect b {
+    position: absolute; top: -17px; left: -1px; font: 10px/1 monospace;
+    background: var(--accent); color: #04141c; padding: 2px 4px;
+    border-radius: 2px; white-space: nowrap;
+  }
+  .rect.sel b { background: var(--accent2); }
+  #drag {
+    position: absolute; border: 1px dashed var(--accent2);
+    background: #7fd4ff22; pointer-events: none; display: none;
+  }
+  #drag.detect {
+    border: 1px dashed var(--good); background: #8fe38f22;
+  }
+  #hint { color: var(--dim); padding: 40px; text-align: center; }
+
+  /* --- sprite list --- */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 4px 5px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: .5px; }
+  tr.sel { background: #ffd27f18; }
+  td input[type=text] { padding: 3px 5px; }
+  td input[type=number] { padding: 3px 4px; width: 4.6em; }
+  .mini { background: none; border: 1px solid var(--line); color: var(--bad);
+    padding: 2px 6px; font-weight: 700; border-radius: 3px; cursor: pointer; }
+
+  /* --- preview --- */
+  .prev { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .prevcell { text-align: center; font-size: 11px; color: var(--dim); }
+  .prevcell canvas {
+    image-rendering: pixelated; background:
+      repeating-conic-gradient(#191922 0% 25%, #101017 0% 50%) 0 0 / 8px 8px;
+    border: 1px solid var(--line); display: block; margin: 0 auto 3px;
+  }
+  .warn { color: var(--accent2); }
+  .err { color: var(--bad); }
+  .ok { color: var(--good); }
+  pre#json {
+    margin: 0; padding: 10px; background: #0b0b0f; border: 1px solid var(--line);
+    border-radius: 4px; font: 12px/1.45 Consolas, monospace;
+    color: var(--accent2); max-height: 240px; overflow: auto;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  code { background: #0b0b0f; padding: 1px 4px; border-radius: 3px;
+    font: 12px Consolas, monospace; color: var(--accent2); }
+
+  .swatch {
+    width: 26px; height: 26px; border-radius: 4px; flex: 0 0 auto;
+    border: 1px solid var(--line); background:
+      repeating-conic-gradient(#191922 0% 25%, #101017 0% 50%) 0 0 / 8px 8px;
+  }
+  .banner {
+    border: 1px solid var(--accent2); background: #ffd27f14;
+    border-radius: 5px; padding: 9px 11px; margin-top: 10px;
+  }
+  .banner em { color: var(--accent2); margin: 0; }
+
+  /* --- animations --- */
+  .anim {
+    border: 1px solid var(--line); border-radius: 5px; padding: 10px;
+    margin-top: 10px; background: #0f0f14;
+  }
+  .anim .top { display: flex; gap: 8px; align-items: flex-end;
+    flex-wrap: wrap; margin-bottom: 8px; }
+  .anim .top label.f { flex: 0 0 auto; }
+  .anim .top label.f:first-child { flex: 1 1 8em; }
+  .frames { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .frame {
+    display: flex; align-items: center; gap: 3px; font: 11px monospace;
+    background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 3px; padding: 2px 4px;
+  }
+  .frame button {
+    background: none; border: 0; color: var(--dim); padding: 0 2px;
+    font-weight: 700; cursor: pointer; font-size: 12px; letter-spacing: 0;
+  }
+  .frame button:hover { color: var(--accent); }
+  .frame button.x:hover { color: var(--bad); }
+  .animprev { display: flex; gap: 12px; align-items: flex-end;
+    margin-top: 9px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SPRITE SHEET BUILDER</h1>
+  <p>Slice your own art into sprites Weapon Forge can load &mdash; drop a PNG (or a GIF and it
+     gets converted). Writes the <code>.json</code> that goes in the mod's <code>sprites</code> folder.</p>
+</header>
+
+<div class="layout">
+  <div id="left">
+    <div class="bar">
+      <input type="file" id="file" accept="image/png,image/jpeg,image/gif" style="width:auto">
+      <button class="secondary" id="zoom-out">&minus;</button>
+      <span id="zoom-label" style="color:var(--dim);min-width:4em;text-align:center">8&times;</span>
+      <button class="secondary" id="zoom-in">+</button>
+      <span id="sheet-info" style="color:var(--dim)"></span>
+    </div>
+    <div id="stage">
+      <div id="hint">
+        Choose a PNG, JPG or GIF to begin.<br><br>
+        Then drag on the image to cut out a sprite, or use auto-detect / grid slice on the right.
+      </div>
+      <div id="inner" style="display:none">
+        <canvas id="sheet"></canvas>
+        <div id="drag"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="right">
+    <section>
+      <h2>1 &mdash; the sheet</h2>
+      <label class="f"><span>PNG filename the mod will look for</span>
+        <input type="text" id="sheet-name" placeholder="myart.png">
+      </label>
+      <em>This must match the PNG you drop in the mod's <code>sprites</code> folder. If you
+          loaded a GIF, use <b>Download PNG</b> below and put that file there.</em>
+      <div class="row" style="margin-top:10px">
+        <label class="f"><span>pixelsPerUnit</span>
+          <input type="number" id="ppu" value="20" min="1" step="1">
+        </label>
+        <label class="f" style="flex:1 1 14em"><span>in-game size
+            <span id="ppu-readout" style="color:var(--accent2)"></span></span>
+          <input type="range" id="ppu-slide" min="4" max="160" step="1" value="20">
+        </label>
+        <label class="f"><span>filter</span>
+          <select id="filter">
+            <option value="point">point (pixel art)</option>
+            <option value="bilinear">bilinear (smooth)</option>
+          </select>
+        </label>
+        <button class="secondary" id="dl-png" disabled>Download PNG</button>
+      </div>
+      <em><b>20</b> is the game's own scale and almost always what you want. The stock
+          projectile sprites are tiny &mdash; the Popper's is <b>7&times;7 px</b> (0.35 world
+          units).
+          <br>The <b>in-game size</b> slider is the friendly end of the same
+          setting: drag right for bigger, left for smaller, and the readout
+          tells you how your largest sprite compares to the Popper. It is
+          <b>non-destructive</b> &mdash; it only changes the number written into
+          the .json, never a pixel of your art, so it is the knob to reach for
+          first. (Under the hood it is pixelsPerUnit inverted: more pixels per
+          unit means a <i>smaller</i> sprite, which is backwards for a size
+          slider.) Watch the <b>scale check</b> panel while you drag.</em>
+      <div id="gif-note"></div>
+    </section>
+
+    <section id="sec-clean">
+      <h2>2 &mdash; clean up the image</h2>
+      <div id="clean-hint"></div>
+
+      <div class="row">
+        <label class="f"><span>background colour</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span id="bg-swatch" class="swatch"></span>
+            <input type="text" id="bg-color" placeholder="#c0c080" style="width:8em">
+          </div>
+        </label>
+        <label class="f"><span>tolerance</span>
+          <input type="number" id="bg-tol" value="8" min="0" max="255" step="1">
+        </label>
+        <label class="f"><span>remove it</span>
+          <select id="bg-on">
+            <option value="0">no</option>
+            <option value="1">yes &mdash; make transparent</option>
+          </select>
+        </label>
+        <button class="secondary" id="bg-auto">Use dominant colour</button>
+      </div>
+      <em>Art exported with a solid backdrop needs that colour turned into
+          transparency, or every shot flies around inside a coloured box.
+          <b>Tolerance</b> widens the match for anti-aliased or slightly dithered
+          edges &mdash; start at 8, raise it if a fringe survives, lower it if
+          parts of the sprite vanish. Auto-detect in step 3 also depends on
+          this: with no transparency the whole sheet is one island.</em>
+
+      <div class="row" style="margin-top:12px">
+        <label class="f" style="flex:1 1 16em"><span>resample the image
+            <span id="scale-readout" style="color:var(--accent2)">100%</span></span>
+          <input type="range" id="scale-pct" min="10" max="400" step="1" value="100">
+        </label>
+        <label class="f"><span>snap</span>
+          <select id="scale-snap">
+            <option value="1">to clean divisors</option>
+            <option value="0">free</option>
+          </select>
+        </label>
+        <button class="secondary" id="scale-reset">100%</button>
+      </div>
+      <div class="row">
+        <span id="scale-info" style="color:var(--dim);font-size:12px"></span>
+      </div>
+      <em>Resamples the whole sheet with nearest-neighbour, so pixel art stays
+          crisp instead of going blurry, and rescales any rects you already cut.
+          <b>Use this when the art is drawn far bigger than the game's</b> &mdash;
+          stock projectile sprites are about 7&times;7 px. The alternative is
+          leaving the image alone and raising <code>pixelsPerUnit</code> in step
+          1, which shrinks it in game without touching the file; that keeps more
+          detail but costs more memory and can look too fine next to the
+          game's chunky art.</em>
+
+      <div class="row" style="margin-top:12px">
+        <button class="secondary" id="trim">Auto-trim to content</button>
+        <button class="secondary" id="crop-reset" disabled>Undo crop / repack</button>
+        <span id="crop-info" style="color:var(--dim);font-size:12px"></span>
+      </div>
+      <em><b>Crop.</b> Auto-trim shaves off every fully transparent edge, so a
+          tall strip with wide empty margins gets tight instantly. To crop to a
+          specific region instead, set <i>what dragging does</i> below to
+          <b>crop</b> and drag the box you want to keep. Either way the sprite
+          rects you have already cut move with the image, and any that fall
+          outside are dropped.
+          <br><b>Cropping bakes.</b> The cropped pixels become the new working
+          image, so the background-removal and shrink settings above reset to
+          neutral (they are already applied). Undo restores the file as
+          loaded &mdash; and re-loading the PNG always gets you back to
+          square one.</em>
+
+      <div id="modified-note"></div>
+    </section>
+
+    <section>
+      <h2>3 &mdash; cut out sprites</h2>
+      <div class="row">
+        <button id="auto">Auto-detect</button>
+        <label class="f"><span>alpha &gt;</span>
+          <input type="number" id="alpha-thr" value="0" min="0" max="254" step="1">
+        </label>
+        <label class="f"><span>min px</span>
+          <input type="number" id="min-size" value="2" min="1" step="1">
+        </label>
+        <label class="f"><span>gap merge</span>
+          <input type="number" id="gap" value="0" min="0" step="1">
+        </label>
+      </div>
+      <em>Finds every island of non-transparent pixels and boxes it, the way Unity's own
+          importer does. <b>gap merge</b> joins islands within that many pixels &mdash; raise it
+          to 1&ndash;2 if one sprite has detached bits (a dot over an i, sparks round a bullet).
+          The button scans the <b>whole sheet</b> and starts the list over.</em>
+
+      <div class="row" style="margin-top:12px">
+        <label class="f"><span>what dragging on the image does</span>
+          <select id="drag-mode">
+            <option value="sprite">make one sprite from the box</option>
+            <option value="detect">auto-detect everything inside the box</option>
+            <option value="crop">crop the sheet to the box</option>
+          </select>
+        </label>
+      </div>
+      <em><b>Detect in an area.</b> Pick the second option (or just hold
+          <b>Shift</b> while dragging) and the box becomes a search region
+          instead of a sprite: every island inside it is found separately,
+          using the same three settings above. Results are <b>added</b> to the
+          list, so you can work a messy sheet one region at a time &mdash; and
+          re-dragging over the same area refreshes it rather than duplicating,
+          since any sprite already wholly inside the box is dropped first.
+          Islands that run past the edge of your box are cropped to it.</em>
+
+      <div class="row" style="margin-top:12px">
+        <button id="grid">Grid slice</button>
+        <label class="f"><span>cell w</span><input type="number" id="cw" value="16" min="1"></label>
+        <label class="f"><span>cell h</span><input type="number" id="ch" value="16" min="1"></label>
+        <label class="f"><span>cols</span><input type="number" id="cols" value="0" min="0"></label>
+        <label class="f"><span>rows</span><input type="number" id="rows" value="0" min="0"></label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="f"><span>offset x</span><input type="number" id="ox" value="0" min="0"></label>
+        <label class="f"><span>offset y</span><input type="number" id="oy" value="0" min="0"></label>
+        <label class="f"><span>pad x</span><input type="number" id="px" value="0" min="0"></label>
+        <label class="f"><span>pad y</span><input type="number" id="py" value="0" min="0"></label>
+        <label class="f"><span>skip empty</span>
+          <select id="skip-empty"><option value="1">yes</option><option value="0">no</option></select>
+        </label>
+      </div>
+      <em>For evenly spaced sheets and flipbooks. Leave <b>cols/rows</b> at 0 to fill the
+          whole image automatically.</em>
+
+      <div class="row" style="margin-top:12px">
+        <button class="danger" id="clear">Clear all</button>
+        <span style="color:var(--dim);font-size:12px">drag a box to add one by
+          hand, or Shift-drag to auto-detect inside it</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>4 &mdash; sprites <span id="count" style="color:var(--dim)"></span></h2>
+      <div id="problems"></div>
+      <table id="list">
+        <thead><tr>
+          <th>name</th><th>x</th><th>y</th><th>w</th><th>h</th>
+          <th>pivot</th><th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <em style="margin-top:8px"><code>x,y</code> is the sprite's <b>top-left</b> corner with y
+          counting downward &mdash; the same as every image editor. The mod flips it for Unity.
+          Editing them moves <i>where the sprite is read from</i>; it does not move the art.
+          To rearrange the art itself, repack:</em>
+      <div class="row" style="margin-top:10px">
+        <button id="repack" disabled>Repack into a small sheet</button>
+        <label class="f"><span>padding</span>
+          <input type="number" id="pack-pad" value="1" min="0" max="8" step="1">
+        </label>
+        <span id="repack-info" style="color:var(--dim);font-size:12px"></span>
+      </div>
+      <em><b>This is how you get a small PNG.</b> It lifts every sprite out and
+          packs them shoulder-to-shoulder into the smallest tidy sheet it can,
+          throwing away all the empty space between them &mdash; a 60&times;1920
+          strip of 32 mostly-empty frames becomes something like
+          104&times;60. The art moves and the rects follow, so your sprites and
+          animations keep working untouched.
+          <br><b>Padding</b> leaves a transparent gap between neighbours; 1 is a
+          safe default and stops any chance of a neighbour's edge bleeding in.
+          <br>Like cropping, this <b>bakes</b>: the packed pixels become the new
+          working image and the settings in step 2 reset. Remember to
+          <b>Download PNG</b> afterwards &mdash; the old file on disk is the
+          wrong size now.</em>
+    </section>
+
+    <section>
+      <h2>5 &mdash; animation <span id="anim-count" style="color:var(--dim)"></span></h2>
+      <div class="row">
+        <button id="mk-anim">Make animation from these sprites</button>
+      </div>
+      <em>Builds one animation from every sprite above, <b>in the order they are
+          listed</b>. Frame order comes from that list and nothing else &mdash;
+          the <code>_1</code> / <code>_2</code> numbers on auto-named sprites
+          only keep the names unique, they are not frame numbers. Reorder with
+          the arrows.</em>
+      <div id="anims"></div>
+      <div class="banner" style="margin-top:10px"><em><b>Naming &mdash; read this
+          once and never trip on it again.</b> A sheet contains two kinds of
+          named thing, and the weapon points at one of them <i>by name</i>
+          &mdash; never at the .png or the .json filename.
+          <br>&bull; <b>sprites</b> are still frames, named
+          <code>&lt;sheet&gt;</code>, <code>&lt;sheet&gt;_1</code>,
+          <code>&lt;sheet&gt;_2</code>&hellip; (the numbers only keep them
+          unique, they are not frame numbers)
+          <br>&bull; the <b>animation</b> is the flipbook, named
+          <code>&lt;sheet&gt;Anim</code>
+          <br>So for a sheet called <code>petrolbm.png</code>,
+          <code>"projectileSprite": "petrolbm"</code> is one frozen frame while
+          <code>"projectileSprite": "petrolbmAnim"</code> is the animation.
+          Rename either freely &mdash; the export panel below always shows the
+          exact line to paste, and it prefers the animation when you have
+          one.</em></div>
+    </section>
+
+    <section>
+      <h2>6 &mdash; scale check</h2>
+      <div class="prev" id="preview"></div>
+      <em>Every sprite drawn at its real in-game size next to the stock Popper bullet
+          (7&times;7). If yours dwarfs it, raise pixelsPerUnit or draw smaller.</em>
+    </section>
+
+    <section>
+      <h2>7 &mdash; export</h2>
+      <div class="row" style="margin-bottom:10px">
+        <button id="dl-json" disabled>Save .json</button>
+        <button class="secondary" id="copy-json" disabled>Copy JSON</button>
+      </div>
+      <pre id="json">(load an image and cut a sprite)</pre>
+      <em style="margin-top:10px">Put the <code>.json</code> and the PNG in
+          <code>BepInEx\plugins\...\sprites\</code>, then paste this into your
+          weapon's JSON. <b>Copy the name exactly</b> &mdash; it is the name of
+          a sprite or animation inside the sheet, not the filename:</em>
+      <pre id="usage" style="margin-top:6px">"weapon": { "projectileSprite": "..." }</pre>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // origCanvas = the file exactly as loaded; srcCanvas = the working image
+  // after background removal / shrinking. Clean-up always recomputes the
+  // second from the first.
+  var origCanvas = document.createElement("canvas");
+  var origCtx = origCanvas.getContext("2d", { willReadFrequently: true });
+  var scaleApplied = 100;
+
+  // The file exactly as opened, kept aside so a bake (crop / repack) can be
+  // undone without making the user re-pick the file.
+  var pristineCanvas = document.createElement("canvas");
+  var baked = false;
+
+  var srcCanvas = document.createElement("canvas");
+  var srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true });
+  var pixels = null;              // Uint8ClampedArray RGBA of the whole sheet
+  var loaded = false;
+  var zoom = 8;
+  var sprites = [];
+  var anims = [];                 // {name, fps, loop, randomStart, frames:[names]}
+  var selected = -1;
+  var convertedBlob = null;       // set when a GIF was converted
+
+  var el = function (id) { return document.getElementById(id); };
+  var stage = el("stage"), inner = el("inner"), sheetCanvas = el("sheet");
+  var dragBox = el("drag");
+
+  // ---------- loading ----------
+
+  el("file").addEventListener("change", function () {
+    if (this.files && this.files[0]) loadFile(this.files[0]);
+  });
+
+  stage.addEventListener("dragover", function (e) { e.preventDefault(); });
+  stage.addEventListener("drop", function (e) {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0])
+      loadFile(e.dataTransfer.files[0]);
+  });
+
+  function loadFile(file) {
+    var base = file.name.replace(/\.[^.]+$/, "");
+    el("gif-note").innerHTML = "";
+    convertedBlob = null;
+    el("dl-png").disabled = true;
+
+    if (/\.gif$/i.test(file.name) || file.type === "image/gif") {
+      loadGif(file, base);
+      return;
+    }
+
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      adopt(img, img.naturalWidth, img.naturalHeight);
+      el("sheet-name").value = base + ".png";
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = function () {
+      note("err", "Could not read that image.");
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+
+  // GIF is not loadable by the engine at all, so we decode every frame here
+  // and stitch them into a horizontal PNG strip the mod CAN read.
+  function loadGif(file, base) {
+    if (typeof ImageDecoder === "undefined") {
+      note("err",
+        "This browser cannot decode GIF frames (no ImageDecoder support). " +
+        "Open this page in Chrome or Edge for GIFs, or export a PNG sheet " +
+        "from your image editor instead. PNG and JPG work in every browser.");
+      return;
+    }
+
+    note("", "Decoding GIF…");
+
+    file.arrayBuffer().then(function (buf) {
+      var dec = new ImageDecoder({ data: buf, type: "image/gif" });
+      return dec.tracks.ready.then(function () {
+        var track = dec.tracks.selectedTrack;
+        var total = track && track.frameCount ? track.frameCount : 1;
+        var frames = [];
+
+        function next(i) {
+          if (i >= total) return Promise.resolve(frames);
+          return dec.decode({ frameIndex: i }).then(function (res) {
+            frames.push(res.image);
+            return next(i + 1);
+          }).catch(function () { return frames; });
+        }
+
+        return next(0);
+      }).then(function (frames) {
+        if (!frames.length) throw new Error("no frames");
+
+        var fw = frames[0].displayWidth || frames[0].codedWidth;
+        var fh = frames[0].displayHeight || frames[0].codedHeight;
+
+        var strip = document.createElement("canvas");
+        strip.width = fw * frames.length;
+        strip.height = fh;
+        var sctx = strip.getContext("2d");
+        sctx.imageSmoothingEnabled = false;
+
+        for (var i = 0; i < frames.length; i++) {
+          sctx.drawImage(frames[i], i * fw, 0, fw, fh);
+          if (frames[i].close) frames[i].close();
+        }
+
+        adopt(strip, strip.width, strip.height);
+        el("sheet-name").value = base + ".png";
+
+        // Pre-fill the grid fields to the frame size so one click slices it.
+        el("cw").value = fw; el("ch").value = fh;
+        el("cols").value = frames.length; el("rows").value = 1;
+        el("ox").value = 0; el("oy").value = 0;
+        el("px").value = 0; el("py").value = 0;
+
+        strip.toBlob(function (blob) {
+          convertedBlob = blob;
+          el("dl-png").disabled = false;
+        }, "image/png");
+
+        // Slice the strip and build the animation right away - a converted
+        // GIF you then have to assemble by hand would be pointless.
+        el("grid").click();
+        if (sprites.length > 1) el("mk-anim").click();
+
+        note("ok",
+          "Converted " + frames.length + " GIF frame(s) into a " +
+          strip.width + "×" + strip.height + " PNG strip, sliced it, and " +
+          "built an animation from the frames — check the fps below, it " +
+          "defaults to 12 and the GIF's own timing is not carried over. " +
+          "Click <b>Download PNG</b> and put that file in the sprites " +
+          "folder alongside the .json; the mod cannot read GIF itself.");
+      });
+    }).catch(function (e) {
+      note("err", "GIF decode failed: " + (e && e.message ? e.message : e));
+    });
+  }
+
+  function note(cls, html) {
+    el("gif-note").innerHTML = '<em class="' + cls + '">' + html + "</em>";
+  }
+
+  function adopt(source, w, h) {
+    // Keep the image exactly as loaded. Background-keying and shrinking are
+    // always recomputed FROM this, never stacked on their own output, so
+    // nudging the tolerance or the divisor can't degrade the art.
+    origCanvas.width = w; origCanvas.height = h;
+    origCtx.clearRect(0, 0, w, h);
+    origCtx.imageSmoothingEnabled = false;
+    origCtx.drawImage(source, 0, 0);
+
+    pristineCanvas.width = w; pristineCanvas.height = h;
+    var pc = pristineCanvas.getContext("2d");
+    pc.imageSmoothingEnabled = false;
+    pc.clearRect(0, 0, w, h);
+    pc.drawImage(origCanvas, 0, 0);
+    baked = false;
+    el("crop-reset").disabled = true;
+    el("crop-info").textContent = "";
+
+    loaded = true;
+    sprites = []; anims = []; selected = -1;
+    scaleApplied = 100;
+    el("scale-pct").value = "100";
+    el("hint").style.display = "none";
+    inner.style.display = "";
+
+    suggestBackground();
+    reprocess();
+  }
+
+  // Rebuild the working image from the pristine original, applying whatever
+  // clean-up is switched on.
+  function reprocess() {
+    if (!loaded) return;
+
+    var pct = currentScalePct();
+    var ow = origCanvas.width, oh = origCanvas.height;
+    var w = Math.max(1, Math.round(ow * pct / 100));
+    var h = Math.max(1, Math.round(oh * pct / 100));
+
+    // Key the background out at FULL resolution first, so the alpha holes
+    // are resampled along with the colour rather than leaving a keyed fringe.
+    var stage = document.createElement("canvas");
+    stage.width = ow; stage.height = oh;
+    var sc = stage.getContext("2d", { willReadFrequently: true });
+    sc.imageSmoothingEnabled = false;
+    sc.drawImage(origCanvas, 0, 0);
+
+    if (el("bg-on").value === "1") {
+      var key = parseHex(el("bg-color").value);
+      if (key) {
+        var tol = Math.max(0, parseInt(el("bg-tol").value, 10) || 0);
+        var img = sc.getImageData(0, 0, ow, oh);
+        var d = img.data;
+        for (var i = 0; i < d.length; i += 4) {
+          if (Math.abs(d[i] - key[0]) <= tol &&
+              Math.abs(d[i + 1] - key[1]) <= tol &&
+              Math.abs(d[i + 2] - key[2]) <= tol) {
+            d[i + 3] = 0;
+          }
+        }
+        sc.putImageData(img, 0, 0);
+      }
+    }
+
+    srcCanvas.width = w; srcCanvas.height = h;
+    srcCtx.clearRect(0, 0, w, h);
+    srcCtx.imageSmoothingEnabled = false;   // nearest-neighbour: keeps pixel art crisp
+    srcCtx.drawImage(stage, 0, 0, ow, oh, 0, 0, w, h);
+    pixels = srcCtx.getImageData(0, 0, w, h).data;
+
+    sheetCanvas.width = w; sheetCanvas.height = h;
+    var ctx = sheetCanvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(srcCanvas, 0, 0);
+
+    // Carry existing rects across a scale change so 32 hand-named frames
+    // don't have to be re-cut.
+    if (pct !== scaleApplied) {
+      var k = pct / scaleApplied;
+      sprites.forEach(function (s) {
+        s.x = Math.round(s.x * k); s.y = Math.round(s.y * k);
+        s.w = Math.max(1, Math.round(s.w * k));
+        s.h = Math.max(1, Math.round(s.h * k));
+      });
+      scaleApplied = pct;
+    }
+
+    el("sheet-info").textContent =
+      w + "×" + h + " px" +
+      (pct !== 100 ? " (from " + ow + "×" + oh + ")" : "");
+
+    el("scale-readout").textContent = pct + "%";
+
+    // Nearest-neighbour only looks clean at a whole ratio. Anything else
+    // duplicates some rows and not others, which shows up as a wobbly,
+    // unevenly-thick sprite - and it also breaks an even frame grid.
+    var msg = "";
+    if (pct !== 100) {
+      msg = "→ " + w + "×" + h + " px";
+      var ratio = 100 / pct;
+      var cleanDown = pct < 100 && Math.abs(ratio - Math.round(ratio)) < 0.001;
+      var cleanUp = pct > 100 && Math.abs(pct / 100 - Math.round(pct / 100)) < 0.001;
+      if (!cleanDown && !cleanUp) {
+        msg += ' <span class="err">— not a whole ratio, so pixel rows get ' +
+               "duplicated unevenly and the art will look wobbly. Use " +
+               'snap, or one of 50% / 33% / 25% / 200% / 300%.</span>';
+      } else if (ow % Math.round(ratio) !== 0 && pct < 100) {
+        msg += ' <span class="warn">— ' + ow + "×" + oh +
+               " doesn't divide by " + Math.round(ratio) +
+               " exactly, so a frame grid may land on half pixels.</span>";
+      }
+    }
+    el("scale-info").innerHTML = msg;
+
+    updateSwatch();
+    updateModifiedNote();
+    applyZoom();
+    render();
+  }
+
+  // Nearest-neighbour resampling is only clean at a whole ratio, so by
+  // default the slider snaps to those: 25 / 33 / 50 / 100 / 200 / 300 / 400 %
+  // (i.e. divide by 4, 3, 2, or multiply by 2, 3, 4). "free" lets you land
+  // anywhere and warns instead.
+  var CLEAN_PCT = [10, 12.5, 14, 16, 20, 25, 33, 50, 100, 200, 300, 400];
+
+  function currentScalePct() {
+    var raw = parseFloat(el("scale-pct").value);
+    if (isNaN(raw) || raw <= 0) raw = 100;
+
+    if (el("scale-snap").value !== "1")
+      return Math.round(raw * 10) / 10;
+
+    var best = CLEAN_PCT[0], bestD = Infinity;
+    for (var i = 0; i < CLEAN_PCT.length; i++) {
+      var d = Math.abs(CLEAN_PCT[i] - raw);
+      if (d < bestD) { bestD = d; best = CLEAN_PCT[i]; }
+    }
+    return best;
+  }
+
+  el("scale-reset").addEventListener("click", function () {
+    el("scale-pct").value = "100";
+    reprocess();
+  });
+
+  // ---------- in-game size slider ----------
+  // pixelsPerUnit is the "how big in the game" dial and changes nothing about
+  // the file, so it gets a slider you can drag while watching the scale-check
+  // panel. Higher ppu = more pixels per world unit = SMALLER in game, which is
+  // backwards from what a size slider should feel like - so the slider runs
+  // the other way and the readout speaks in world units.
+  function syncPpu(from) {
+    var ppu;
+    if (from === "slider") {
+      // Invert, so dragging right makes the sprite BIGGER.
+      var lo = 4, hi = 160;
+      var v = parseFloat(el("ppu-slide").value);
+      ppu = Math.round(lo + hi - v);
+      el("ppu").value = ppu;
+    } else {
+      ppu = Math.max(1, parseFloat(el("ppu").value) || 20);
+      var inv = Math.round(4 + 160 - ppu);
+      el("ppu-slide").value = Math.max(4, Math.min(160, inv));
+    }
+
+    var txt = "";
+    if (loaded && sprites.length) {
+      var big = sprites.reduce(function (a, b) {
+        return (a.w * a.h >= b.w * b.h) ? a : b;
+      });
+      var uw = big.w / ppu, uh = big.h / ppu;
+      var vsPopper = (uw / 0.35);
+      txt = "— biggest sprite " + uw.toFixed(2) + "×" + uh.toFixed(2) +
+            " units (" + vsPopper.toFixed(1) + "× the Popper)";
+    } else {
+      txt = "— " + ppu + " px per world unit";
+    }
+    el("ppu-readout").textContent = txt;
+
+    drawPreview();
+    drawJson();
+  }
+
+  el("ppu-slide").addEventListener("input", function () { syncPpu("slider"); });
+  el("ppu").addEventListener("input", function () { syncPpu("field"); });
+
+  function parseHex(text) {
+    if (!text) return null;
+    var m = /^#?([0-9a-f]{6})$/i.exec(text.trim());
+    if (!m) return null;
+    var n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  function toHex(r, g, b) {
+    return "#" + [r, g, b].map(function (v) {
+      return ("0" + v.toString(16)).slice(-2);
+    }).join("");
+  }
+
+  // The most common fully-opaque colour, which for art exported with a flat
+  // backdrop is the backdrop.
+  function dominantColor() {
+    var w = origCanvas.width, h = origCanvas.height;
+    var d = origCtx.getImageData(0, 0, w, h).data;
+    var counts = {}, best = null, bestN = 0, opaque = 0;
+
+    for (var i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 255) continue;
+      opaque++;
+      var k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+      var n = (counts[k] = (counts[k] || 0) + 1);
+      if (n > bestN) { bestN = n; best = k; }
+    }
+
+    if (best === null) return null;
+    return {
+      rgb: [(best >> 16) & 255, (best >> 8) & 255, best & 255],
+      share: bestN / (w * h),
+      anyTransparent: opaque < (w * h)
+    };
+  }
+
+  // On load, say plainly whether this image needs keying - the single most
+  // common surprise with art that wasn't drawn for a game.
+  function suggestBackground() {
+    var dom = dominantColor();
+    var box = el("clean-hint");
+    box.innerHTML = "";
+
+    if (!dom) { el("bg-on").value = "0"; return; }
+
+    el("bg-color").value = toHex(dom.rgb[0], dom.rgb[1], dom.rgb[2]);
+
+    if (!dom.anyTransparent && dom.share > 0.4) {
+      // No alpha anywhere and one colour dominates: almost certainly a
+      // backdrop. Switch keying on rather than making them find it.
+      el("bg-on").value = "1";
+      box.innerHTML =
+        '<div class="banner"><em>This image has <b>no transparency at all</b>, ' +
+        'and ' + (dom.share * 100).toFixed(1) + '% of it is ' +
+        '<b>' + el("bg-color").value + '</b> — so that is almost certainly the ' +
+        'background. Removal is switched <b>on</b> for you; check the preview ' +
+        'and adjust the tolerance if there is a fringe.</em></div>';
+    } else {
+      el("bg-on").value = "0";
+    }
+  }
+
+  function updateSwatch() {
+    var rgb = parseHex(el("bg-color").value);
+    el("bg-swatch").style.background =
+      rgb ? toHex(rgb[0], rgb[1], rgb[2]) : "";
+  }
+
+  // Both clean-up steps change the PIXELS, and the mod reads the PNG off
+  // disk - so a processed sheet is useless unless it is downloaded.
+  function updateModifiedNote() {
+    var keyed = el("bg-on").value === "1" &&
+                parseHex(el("bg-color").value) !== null;
+    var scaled = currentScalePct() !== 100;
+    var box = el("modified-note");
+
+    if (!keyed && !scaled && !convertedBlob && !baked) {
+      box.innerHTML = "";
+      el("dl-png").disabled = true;
+      return;
+    }
+
+    var what = [];
+    if (keyed) what.push("background removed");
+    if (scaled) what.push("shrunk to " + srcCanvas.width + "×" + srcCanvas.height);
+    if (baked) what.push("cropped / repacked to " +
+                         origCanvas.width + "×" + origCanvas.height);
+    if (convertedBlob && !what.length && !baked)
+      what.push("converted from GIF");
+
+    box.innerHTML =
+      '<div class="banner"><em>The image on screen has been changed (' +
+      what.join(", ") + '). The mod reads the PNG from disk, so you <b>must ' +
+      'click Download PNG in step 1</b> and put THAT file in the sprites ' +
+      'folder — the original still has its background and its old size.' +
+      '</em></div>';
+
+    el("dl-png").disabled = false;
+  }
+
+  // Export whatever is on screen, background and scale included.
+  function currentPngBlob() {
+    return new Promise(function (resolve) {
+      srcCanvas.toBlob(resolve, "image/png");
+    });
+  }
+
+  // ---------- zoom ----------
+
+  function applyZoom() {
+    if (!loaded) return;
+    var w = srcCanvas.width, h = srcCanvas.height;
+    sheetCanvas.style.width = (w * zoom) + "px";
+    sheetCanvas.style.height = (h * zoom) + "px";
+    inner.style.width = (w * zoom) + "px";
+    inner.style.height = (h * zoom) + "px";
+    el("zoom-label").textContent = zoom + "×";
+    drawRects();
+  }
+
+  el("zoom-in").addEventListener("click", function () {
+    zoom = Math.min(32, zoom * 2); applyZoom();
+  });
+  el("zoom-out").addEventListener("click", function () {
+    zoom = Math.max(1, zoom / 2); applyZoom();
+  });
+
+  // ---------- crop / repack ----------
+
+  // Both of these REWRITE the pixels, so rather than adding another stage to
+  // the clean-up pipeline they bake: the result becomes the new base image and
+  // the step-2 settings reset to neutral, because they are already applied.
+  // That keeps "what you see" and "what gets exported" the same thing, and
+  // Undo restores the file as it was opened.
+  function bakeNewBase(canvas, newSprites, message) {
+    origCanvas.width = canvas.width;
+    origCanvas.height = canvas.height;
+    origCtx.imageSmoothingEnabled = false;
+    origCtx.clearRect(0, 0, canvas.width, canvas.height);
+    origCtx.drawImage(canvas, 0, 0);
+
+    // The pixels already carry the key and the shrink.
+    el("bg-on").value = "0";
+    el("scale-pct").value = "100";
+    scaleApplied = 100;
+
+    sprites = newSprites;
+    selected = sprites.length ? 0 : -1;
+
+    baked = true;
+    el("crop-reset").disabled = false;
+    el("crop-info").textContent =
+      "now " + canvas.width + "×" + canvas.height + " px";
+
+    reprocess();
+    if (message) note("ok", message);
+  }
+
+  // Crop to a rectangle in CURRENT working-image coordinates.
+  function cropTo(x, y, w, h) {
+    x = Math.max(0, Math.min(srcCanvas.width - 1, x));
+    y = Math.max(0, Math.min(srcCanvas.height - 1, y));
+    w = Math.min(w, srcCanvas.width - x);
+    h = Math.min(h, srcCanvas.height - y);
+
+    if (w < 1 || h < 1) return;
+
+    var out = document.createElement("canvas");
+    out.width = w; out.height = h;
+    var oc = out.getContext("2d");
+    oc.imageSmoothingEnabled = false;
+    oc.drawImage(srcCanvas, x, y, w, h, 0, 0, w, h);
+
+    var before = sprites.length;
+    var kept = [];
+    for (var i = 0; i < sprites.length; i++) {
+      var sp = sprites[i];
+      // Keep only sprites wholly inside the crop - a half-cut sprite would
+      // silently become a different image.
+      if (sp.x >= x && sp.y >= y &&
+          sp.x + sp.w <= x + w && sp.y + sp.h <= y + h) {
+        sp.x -= x; sp.y -= y;
+        kept.push(sp);
+      }
+    }
+    var dropped = before - kept.length;
+
+    bakeNewBase(out, kept,
+      "Cropped to " + w + "×" + h + " px" +
+      (dropped ? ", dropping " + dropped +
+                 " sprite(s) that fell outside" : "") +
+      ". Click <b>Download PNG</b> - the file on disk is the old size.");
+  }
+
+  // Shave off fully transparent edges.
+  el("trim").addEventListener("click", function () {
+    if (!loaded) return;
+
+    var W = srcCanvas.width, H = srcCanvas.height;
+    var minX = W, minY = H, maxX = -1, maxY = -1;
+
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        if (pixels[(y * W + x) * 4 + 3] === 0) continue;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+
+    if (maxX < 0) {
+      note("warn",
+        "Every pixel is transparent, so there is nothing to trim to.");
+      return;
+    }
+
+    if (minX === 0 && minY === 0 && maxX === W - 1 && maxY === H - 1) {
+      note("warn",
+        "Nothing to trim - the art already reaches every edge. If the sheet " +
+        "looks like it has margins, they are probably still opaque: turn on " +
+        "background removal above first.");
+      return;
+    }
+
+    cropTo(minX, minY, maxX - minX + 1, maxY - minY + 1);
+  });
+
+  el("crop-reset").addEventListener("click", function () {
+    if (!loaded || !baked) return;
+    // Straight back to the file as opened; rects cannot be un-mapped
+    // reliably once the art has moved, so they go too.
+    adopt(pristineCanvas, pristineCanvas.width, pristineCanvas.height);
+    note("ok",
+      "Back to the image as loaded (" + pristineCanvas.width + "×" +
+      pristineCanvas.height + "). Sprites were cleared, since their " +
+      "positions no longer meant anything.");
+  });
+
+  // Lift every sprite out and shelf-pack them into the smallest tidy sheet,
+  // which is what actually shrinks the PNG: the empty space BETWEEN frames is
+  // usually most of the file.
+  el("repack").addEventListener("click", function () {
+    if (!loaded || !sprites.length) return;
+
+    var pad = Math.max(0, Math.min(8, parseInt(el("pack-pad").value, 10) || 0));
+
+    // Tallest first, so each shelf is filled by things of similar height and
+    // little vertical space is wasted.
+    var order = sprites.slice().sort(function (a, b) {
+      return (b.h - a.h) || (b.w - a.w);
+    });
+
+    // Aim for a roughly square sheet, but never narrower than the widest
+    // sprite or it cannot be placed at all.
+    var area = 0, widest = 1;
+    order.forEach(function (sp) {
+      area += (sp.w + pad) * (sp.h + pad);
+      if (sp.w > widest) widest = sp.w;
+    });
+    var target = Math.max(widest + pad * 2, Math.ceil(Math.sqrt(area)));
+
+    var placed = [];
+    var penX = pad, penY = pad, shelfH = 0, usedW = 0;
+
+    order.forEach(function (sp) {
+      if (penX + sp.w + pad > target && penX > pad) {
+        penX = pad;
+        penY += shelfH + pad;
+        shelfH = 0;
+      }
+      placed.push({ sp: sp, x: penX, y: penY });
+      penX += sp.w + pad;
+      if (penX > usedW) usedW = penX;
+      if (sp.h > shelfH) shelfH = sp.h;
+    });
+
+    // usedW already includes the trailing pad, so the sheet ends up with an
+    // even transparent border all round.
+    var outW = Math.max(1, usedW);
+    var outH = Math.max(1, penY + shelfH + pad);
+
+    var out = document.createElement("canvas");
+    out.width = outW; out.height = outH;
+    var oc = out.getContext("2d");
+    oc.imageSmoothingEnabled = false;
+
+    var newSprites = [];
+    placed.forEach(function (item) {
+      var sp = item.sp;
+      oc.drawImage(srcCanvas, sp.x, sp.y, sp.w, sp.h,
+                   item.x, item.y, sp.w, sp.h);
+      // Same object, so its name / pivot / animation membership survive.
+      sp.x = item.x; sp.y = item.y;
+      newSprites.push(sp);
+    });
+
+    // Put them back in the user's original list order, not packing order, so
+    // the table and any animation frame lists still read the same.
+    var byName = {};
+    newSprites.forEach(function (sp) { byName[sp.name] = sp; });
+    var reordered = sprites.map(function (sp) {
+      return byName[sp.name] || sp;
+    });
+
+    var wasW = srcCanvas.width, wasH = srcCanvas.height;
+    var savedPct = Math.round(
+      (1 - (outW * outH) / Math.max(1, wasW * wasH)) * 100);
+
+    bakeNewBase(out, reordered,
+      "Repacked " + reordered.length + " sprite(s): " +
+      wasW + "×" + wasH + " → <b>" + outW + "×" + outH + "</b> px" +
+      (savedPct > 0 ? " (" + savedPct + "% smaller)" : "") +
+      ". Click <b>Download PNG</b> and ship that file with the .json.");
+  });
+
+  // ---------- manual drag ----------
+
+  var dragging = false, dsx = 0, dsy = 0, dragDetect = false;
+
+  function toPixel(e) {
+    var r = sheetCanvas.getBoundingClientRect();
+    return {
+      x: Math.floor((e.clientX - r.left) / zoom),
+      y: Math.floor((e.clientY - r.top) / zoom)
+    };
+  }
+
+  inner.addEventListener("mousedown", function (e) {
+    if (!loaded || e.button !== 0) return;
+    var p = toPixel(e);
+    dragging = true; dsx = p.x; dsy = p.y;
+    dragDetect = e.shiftKey;
+    dragBox.style.display = "block";
+    dragBox.classList.toggle("detect",
+      el("drag-mode").value === "detect" || dragDetect);
+    updateDrag(p);
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", function (e) {
+    if (!dragging) return;
+    updateDrag(toPixel(e));
+  });
+
+  window.addEventListener("mouseup", function (e) {
+    if (!dragging) return;
+    dragging = false;
+    dragBox.style.display = "none";
+
+    var p = toPixel(e);
+    var x = Math.max(0, Math.min(dsx, p.x));
+    var y = Math.max(0, Math.min(dsy, p.y));
+    var w = Math.min(srcCanvas.width, Math.max(dsx, p.x) + 1) - x;
+    var h = Math.min(srcCanvas.height, Math.max(dsy, p.y) + 1) - y;
+
+    if (w > 0 && h > 0 && (w > 1 || h > 1)) {
+      // Shift is the shortcut for area-detect, so you can dip into it
+      // without leaving "new sprite" mode.
+      if (el("drag-mode").value === "crop") {
+        cropTo(x, y, w, h);
+      } else if (el("drag-mode").value === "detect" || dragDetect) {
+        detectInArea(x, y, w, h);
+      } else {
+        sprites.push(mk(autoName(), x, y, w, h));
+        selected = sprites.length - 1;
+        render();
+      }
+    }
+    dragDetect = false;
+  });
+
+  function updateDrag(p) {
+    var x = Math.min(dsx, p.x), y = Math.min(dsy, p.y);
+    var w = Math.abs(p.x - dsx) + 1, h = Math.abs(p.y - dsy) + 1;
+    dragBox.style.left = (x * zoom) + "px";
+    dragBox.style.top = (y * zoom) + "px";
+    dragBox.style.width = (w * zoom) + "px";
+    dragBox.style.height = (h * zoom) + "px";
+  }
+
+  function mk(name, x, y, w, h) {
+    return { name: name, x: x, y: y, w: w, h: h, pivotX: 0.5, pivotY: 0.5 };
+  }
+
+  function autoName() {
+    var base = (el("sheet-name").value || "sprite")
+      .replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9_]/g, "") || "sprite";
+    var n = 0, name;
+    do { name = base + (n === 0 ? "" : "_" + n); n++; }
+    while (sprites.some(function (s) { return s.name === name; }));
+    return name;
+  }
+
+  // ---------- auto-detect ----------
+
+  // Flood-fill every island of non-transparent pixels inside a rectangle
+  // (8-connected), using an explicit stack - recursion would blow up on a
+  // big sheet. Neighbour expansion is clamped to the rectangle, so an island
+  // that runs past the edge is CROPPED to it: that is what you want when
+  // detecting "inside this area", and the whole-image call just passes the
+  // full bounds.
+  function detectIslands(rx, ry, rw, rh) {
+    var W = srcCanvas.width, H = srcCanvas.height;
+    var thr = Math.max(0, parseInt(el("alpha-thr").value, 10) || 0);
+    var minSize = Math.max(1, parseInt(el("min-size").value, 10) || 1);
+    var gap = Math.max(0, parseInt(el("gap").value, 10) || 0);
+
+    rx = Math.max(0, rx); ry = Math.max(0, ry);
+    var rx2 = Math.min(W, rx + rw), ry2 = Math.min(H, ry + rh);
+
+    var seen = new Uint8Array(W * H);
+    var stack = new Int32Array(W * H);
+    var boxes = [];
+
+    for (var sy = ry; sy < ry2; sy++) {
+      for (var sx = rx; sx < rx2; sx++) {
+        var start = sy * W + sx;
+        if (seen[start] || pixels[start * 4 + 3] <= thr) continue;
+
+        var top = 0;
+        stack[top++] = start;
+        seen[start] = 1;
+        var minX = W, minY = H, maxX = -1, maxY = -1;
+
+        while (top > 0) {
+          var idx = stack[--top];
+          var x = idx % W, y = (idx - x) / W;
+
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+
+          for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              var nx = x + dx, ny = y + dy;
+              if (nx < rx || ny < ry || nx >= rx2 || ny >= ry2) continue;
+              var n = ny * W + nx;
+              if (seen[n] || pixels[n * 4 + 3] <= thr) continue;
+              seen[n] = 1;
+              stack[top++] = n;
+            }
+          }
+        }
+
+        if (maxX - minX + 1 >= minSize && maxY - minY + 1 >= minSize)
+          boxes.push({ x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 });
+      }
+    }
+
+    if (gap > 0) boxes = mergeBoxes(boxes, gap);
+
+    // Reading order: top-to-bottom in bands, then left-to-right, so the
+    // names line up with how the sheet looks.
+    boxes.sort(function (a, b) {
+      var band = Math.max(1, Math.round((a.h + b.h) / 2));
+      if (Math.abs(a.y - b.y) > band / 2) return a.y - b.y;
+      return a.x - b.x;
+    });
+
+    return boxes;
+  }
+
+  el("auto").addEventListener("click", function () {
+    if (!loaded) return;
+
+    var boxes = detectIslands(0, 0, srcCanvas.width, srcCanvas.height);
+
+    sprites = [];
+    anims = [];
+    for (var k = 0; k < boxes.length; k++) {
+      var b = boxes[k];
+      sprites.push(mk(autoName(), b.x, b.y, b.w, b.h));
+    }
+    selected = sprites.length ? 0 : -1;
+    render();
+
+    if (!boxes.length)
+      note("warn",
+        "Auto-detect found nothing. If your art has no transparency the whole " +
+        "image is one island — use Grid slice, or drag boxes by hand.");
+  });
+
+  // Detect only inside a dragged rectangle, ADDING to what is already there
+  // so you can work a sheet region by region. Re-dragging over the same area
+  // refreshes it rather than duplicating: any existing sprite wholly inside
+  // the rectangle is dropped first.
+  function detectInArea(x, y, w, h) {
+    var boxes = detectIslands(x, y, w, h);
+
+    if (!boxes.length) {
+      note("warn",
+        "Nothing found in that area. Widen the selection, lower <b>min px</b>, " +
+        "or check the background really is transparent (step 2).");
+      return;
+    }
+
+    var before = sprites.length;
+    sprites = sprites.filter(function (s) {
+      var inside = s.x >= x && s.y >= y &&
+                   s.x + s.w <= x + w && s.y + s.h <= y + h;
+      return !inside;
+    });
+    var replaced = before - sprites.length;
+
+    var first = sprites.length;
+    for (var k = 0; k < boxes.length; k++) {
+      var b = boxes[k];
+      sprites.push(mk(autoName(), b.x, b.y, b.w, b.h));
+    }
+    selected = first;
+    render();
+
+    note("ok",
+      "Found <b>" + boxes.length + "</b> sprite(s) in that area" +
+      (replaced ? ", replacing " + replaced + " that were already inside it" : "") +
+      ". Total: " + sprites.length + ".");
+  }
+
+  function mergeBoxes(boxes, gap) {
+    var changed = true;
+    while (changed) {
+      changed = false;
+      outer:
+      for (var i = 0; i < boxes.length; i++) {
+        for (var j = i + 1; j < boxes.length; j++) {
+          if (near(boxes[i], boxes[j], gap)) {
+            var a = boxes[i], b = boxes[j];
+            var x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+            boxes[i] = {
+              x: x, y: y,
+              w: Math.max(a.x + a.w, b.x + b.w) - x,
+              h: Math.max(a.y + a.h, b.y + b.h) - y
+            };
+            boxes.splice(j, 1);
+            changed = true;
+            break outer;
+          }
+        }
+      }
+    }
+    return boxes;
+  }
+
+  function near(a, b, gap) {
+    return !(a.x - gap > b.x + b.w || b.x - gap > a.x + a.w ||
+             a.y - gap > b.y + b.h || b.y - gap > a.y + a.h);
+  }
+
+  // ---------- grid slice ----------
+
+  el("grid").addEventListener("click", function () {
+    if (!loaded) return;
+
+    var W = srcCanvas.width, H = srcCanvas.height;
+    var cw = Math.max(1, parseInt(el("cw").value, 10) || 1);
+    var ch = Math.max(1, parseInt(el("ch").value, 10) || 1);
+    var ox = Math.max(0, parseInt(el("ox").value, 10) || 0);
+    var oy = Math.max(0, parseInt(el("oy").value, 10) || 0);
+    var px = Math.max(0, parseInt(el("px").value, 10) || 0);
+    var py = Math.max(0, parseInt(el("py").value, 10) || 0);
+    var skip = el("skip-empty").value === "1";
+
+    var cols = parseInt(el("cols").value, 10) || 0;
+    var rows = parseInt(el("rows").value, 10) || 0;
+    if (cols <= 0) cols = Math.max(1, Math.floor((W - ox + px) / (cw + px)));
+    if (rows <= 0) rows = Math.max(1, Math.floor((H - oy + py) / (ch + py)));
+
+    sprites = [];
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        var x = ox + c * (cw + px), y = oy + r * (ch + py);
+        if (x + cw > W || y + ch > H) continue;
+        if (skip && isBlank(x, y, cw, ch)) continue;
+        sprites.push(mk(autoName(), x, y, cw, ch));
+      }
+    }
+    selected = sprites.length ? 0 : -1;
+    render();
+  });
+
+  function isBlank(x, y, w, h) {
+    var W = srcCanvas.width;
+    for (var yy = y; yy < y + h; yy++)
+      for (var xx = x; xx < x + w; xx++)
+        if (pixels[(yy * W + xx) * 4 + 3] > 0) return false;
+    return true;
+  }
+
+  // Clears animations too - they only reference sprite names, so leaving
+  // them behind would just be a panel full of broken-frame errors.
+  el("clear").addEventListener("click", function () {
+    sprites = []; anims = []; selected = -1; render();
+  });
+
+  // ---------- rendering ----------
+
+  function drawRects() {
+    var old = inner.querySelectorAll(".rect");
+    for (var i = 0; i < old.length; i++) old[i].remove();
+
+    for (var k = 0; k < sprites.length; k++) {
+      var s = sprites[k];
+      var d = document.createElement("div");
+      d.className = "rect" + (k === selected ? " sel" : "");
+      d.style.left = (s.x * zoom) + "px";
+      d.style.top = (s.y * zoom) + "px";
+      d.style.width = (s.w * zoom) + "px";
+      d.style.height = (s.h * zoom) + "px";
+      if (zoom >= 4) {
+        var b = document.createElement("b");
+        b.textContent = s.name;
+        d.appendChild(b);
+      }
+      inner.appendChild(d);
+    }
+  }
+
+  function render() {
+    syncPpu("field");
+    drawRects();
+    drawList();
+    drawAnims();
+    drawPreview();
+    drawJson();
+  }
+
+  // ---------- animations ----------
+
+  el("mk-anim").addEventListener("click", function () {
+    if (!sprites.length) return;
+
+    var base = (el("sheet-name").value || "anim")
+      .replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9_]/g, "") || "anim";
+    var name = uniqueName(base + "Anim");
+
+    anims.push({
+      name: name,
+      fps: 12,
+      loop: "loop",
+      randomStart: false,
+      frames: sprites.map(function (s) { return s.name; })
+    });
+    render();
+  });
+
+  // Sprites and animations share ONE namespace in the mod, so a new
+  // animation must not take a sprite's name either.
+  function uniqueName(want) {
+    var n = 0, name;
+    do {
+      name = want + (n === 0 ? "" : "_" + n);
+      n++;
+    } while (
+      anims.some(function (a) { return a.name === name; }) ||
+      sprites.some(function (s) { return s.name === name; }));
+    return name;
+  }
+
+  function drawAnims() {
+    var host = el("anims");
+    host.innerHTML = "";
+    el("anim-count").textContent = anims.length ? "(" + anims.length + ")" : "";
+
+    anims.forEach(function (a, ai) {
+      var box = document.createElement("div");
+      box.className = "anim";
+
+      var top = document.createElement("div");
+      top.className = "top";
+
+      top.appendChild(field("name", inp("text", a.name, function (v) {
+        a.name = v; drawJson(); checkAnimProblems();
+      })));
+      top.appendChild(field("fps", inp("number", a.fps, function (v) {
+        a.fps = parseFloat(v) || 0; drawAnims(); drawJson();
+      })));
+
+      var sel = document.createElement("select");
+      [["loop", "loop"], ["once", "once (stop at end)"],
+       ["pingpong", "ping-pong"]].forEach(function (o) {
+        var op = document.createElement("option");
+        op.value = o[0]; op.textContent = o[1];
+        if (a.loop === o[0]) op.selected = true;
+        sel.appendChild(op);
+      });
+      sel.addEventListener("change", function () {
+        a.loop = this.value; drawAnims(); drawJson();
+      });
+      top.appendChild(field("loop", sel));
+
+      var rs = document.createElement("select");
+      [["0", "no"], ["1", "yes"]].forEach(function (o) {
+        var op = document.createElement("option");
+        op.value = o[0]; op.textContent = o[1];
+        if ((a.randomStart ? "1" : "0") === o[0]) op.selected = true;
+        rs.appendChild(op);
+      });
+      rs.addEventListener("change", function () {
+        a.randomStart = this.value === "1"; drawJson();
+      });
+      top.appendChild(field("random start", rs));
+
+      var del = document.createElement("button");
+      del.className = "danger"; del.textContent = "Delete";
+      del.addEventListener("click", function () {
+        anims.splice(ai, 1); render();
+      });
+      top.appendChild(del);
+
+      box.appendChild(top);
+
+      // Frame chips, in play order, with move / remove.
+      var fr = document.createElement("div");
+      fr.className = "frames";
+      a.frames.forEach(function (fname, fi) {
+        var chip = document.createElement("span");
+        chip.className = "frame";
+
+        var left = document.createElement("button");
+        left.textContent = "◀"; left.title = "earlier";
+        left.addEventListener("click", function () {
+          if (fi === 0) return;
+          var t = a.frames[fi - 1];
+          a.frames[fi - 1] = a.frames[fi]; a.frames[fi] = t;
+          drawAnims(); drawJson();
+        });
+
+        var lbl = document.createElement("span");
+        lbl.textContent = (fi + 1) + "." + fname;
+        if (!sprites.some(function (s) { return s.name === fname; }))
+          lbl.style.color = "var(--bad)";
+
+        var right = document.createElement("button");
+        right.textContent = "▶"; right.title = "later";
+        right.addEventListener("click", function () {
+          if (fi >= a.frames.length - 1) return;
+          var t = a.frames[fi + 1];
+          a.frames[fi + 1] = a.frames[fi]; a.frames[fi] = t;
+          drawAnims(); drawJson();
+        });
+
+        var x = document.createElement("button");
+        x.className = "x"; x.textContent = "×";
+        x.addEventListener("click", function () {
+          a.frames.splice(fi, 1); drawAnims(); drawJson();
+        });
+
+        chip.appendChild(left); chip.appendChild(lbl);
+        chip.appendChild(right); chip.appendChild(x);
+        fr.appendChild(chip);
+      });
+
+      if (!a.frames.length) {
+        var none = document.createElement("em");
+        none.className = "err";
+        none.textContent = "No frames - the mod will skip this animation.";
+        fr.appendChild(none);
+      }
+      box.appendChild(fr);
+
+      // Add a frame back. Removing one used to be a one-way door - the only
+      // way back was deleting the whole animation and rebuilding it.
+      var addRow = document.createElement("div");
+      addRow.className = "row";
+      addRow.style.marginTop = "8px";
+
+      var pick = document.createElement("select");
+      if (!sprites.length) {
+        var empty = document.createElement("option");
+        empty.textContent = "(no sprites to add)";
+        pick.appendChild(empty);
+        pick.disabled = true;
+      } else {
+        sprites.forEach(function (s) {
+          var op = document.createElement("option");
+          op.value = s.name;
+          op.textContent = s.name;
+          pick.appendChild(op);
+        });
+      }
+
+      var addBtn = document.createElement("button");
+      addBtn.className = "secondary";
+      addBtn.textContent = "Add frame";
+      addBtn.disabled = !sprites.length;
+      addBtn.addEventListener("click", function () {
+        if (!pick.value) return;
+        a.frames.push(pick.value);
+        drawAnims();
+        drawJson();
+      });
+
+      addRow.appendChild(field("add a sprite as a frame", pick));
+      addRow.appendChild(addBtn);
+
+      var addAll = document.createElement("button");
+      addAll.className = "secondary";
+      addAll.textContent = "Reset to all sprites";
+      addAll.disabled = !sprites.length;
+      addAll.title =
+        "Replace this animation's frames with every sprite, in list order";
+      addAll.addEventListener("click", function () {
+        a.frames = sprites.map(function (s) { return s.name; });
+        drawAnims();
+        drawJson();
+      });
+      addRow.appendChild(addAll);
+
+      box.appendChild(addRow);
+
+      var addHint = document.createElement("em");
+      addHint.innerHTML =
+        "Lands at the <b>end</b> of the sequence &mdash; nudge it into place " +
+        "with the arrows. Adding the same sprite twice is fine and is how you " +
+        "hold a frame for longer.";
+      box.appendChild(addHint);
+
+      // Live playback at true in-game size.
+      var prev = document.createElement("div");
+      prev.className = "animprev";
+      var cv = document.createElement("canvas");
+      cv.style.imageRendering = "pixelated";
+      cv.style.border = "1px solid var(--line)";
+      prev.appendChild(cv);
+      var cap = document.createElement("div");
+      cap.className = "prevcell";
+      prev.appendChild(cap);
+      box.appendChild(prev);
+
+      startPlayback(a, cv, cap);
+
+      host.appendChild(box);
+    });
+
+    checkAnimProblems();
+  }
+
+  function field(label, node) {
+    var l = document.createElement("label");
+    l.className = "f";
+    var s = document.createElement("span");
+    s.textContent = label;
+    l.appendChild(s); l.appendChild(node);
+    return l;
+  }
+
+  function inp(type, value, onChange) {
+    var i = document.createElement("input");
+    i.type = type; i.value = value;
+    if (type === "number") i.step = "any";
+    i.addEventListener("input", function () { onChange(this.value); });
+    return i;
+  }
+
+  // One rAF loop drives every animation preview; canvases that leave the
+  // DOM are dropped so a re-render does not leak timers.
+  var players = [];
+
+  function startPlayback(a, canvas, caption) {
+    players.push({ anim: a, canvas: canvas, caption: caption });
+  }
+
+  function tickPlayers(now) {
+    players = players.filter(function (p) {
+      return p.canvas.isConnected;
+    });
+
+    var ppu = Math.max(1, parseFloat(el("ppu").value) || 20);
+    var UNIT = 90;
+
+    players.forEach(function (p) {
+      var a = p.anim;
+      var live = a.frames
+        .map(function (n) {
+          return sprites.filter(function (s) { return s.name === n; })[0];
+        })
+        .filter(Boolean);
+
+      if (!live.length) {
+        p.canvas.width = p.canvas.height = 1;
+        p.caption.textContent = "";
+        return;
+      }
+
+      var i = 0;
+      if (live.length > 1 && a.fps > 0) {
+        var e = (now / 1000) * a.fps;
+        if (a.loop === "once") i = Math.min(live.length - 1, Math.floor(e));
+        else if (a.loop === "pingpong") {
+          var span = (live.length - 1) * 2;
+          var t = span > 0 ? e % span : 0;
+          i = Math.round(t > live.length - 1 ? span - t : t);
+        } else i = Math.floor(e % live.length);
+      }
+      i = Math.max(0, Math.min(live.length - 1, i));
+
+      var s = live[i];
+      var w = Math.max(6, Math.round((s.w / ppu) * UNIT));
+      var h = Math.max(6, Math.round((s.h / ppu) * UNIT));
+      if (p.canvas.width !== w) p.canvas.width = w;
+      if (p.canvas.height !== h) p.canvas.height = h;
+
+      var c = p.canvas.getContext("2d");
+      c.imageSmoothingEnabled = false;
+      c.clearRect(0, 0, w, h);
+      if (loaded) c.drawImage(srcCanvas, s.x, s.y, s.w, s.h, 0, 0, w, h);
+
+      p.caption.innerHTML =
+        "frame " + (i + 1) + " / " + live.length + "<br>" +
+        (s.w / ppu).toFixed(2) + "×" + (s.h / ppu).toFixed(2) + " units";
+    });
+
+    requestAnimationFrame(tickPlayers);
+  }
+  requestAnimationFrame(tickPlayers);
+
+  function checkAnimProblems() {
+    var box = el("problems");
+    // Sprite problems own the panel; append animation ones after them.
+    var old = box.querySelectorAll("em.anim-problem");
+    for (var i = 0; i < old.length; i++) old[i].remove();
+
+    var msgs = [];
+    var taken = {};
+    sprites.forEach(function (s) {
+      taken[(s.name || "").trim().toLowerCase()] = "sprite";
+    });
+
+    anims.forEach(function (a) {
+      var n = (a.name || "").trim();
+      if (!n) { msgs.push(["err", "An animation has no name."]); return; }
+
+      var key = n.toLowerCase();
+      if (taken[key] === "sprite")
+        msgs.push(["err", 'Animation "' + n + '" reuses a SPRITE\'s name. ' +
+                   "The mod keeps one name per thing and will skip the " +
+                   "animation - rename it."]);
+      else if (taken[key])
+        msgs.push(["err", 'Two animations are both called "' + n + '".']);
+      taken[key] = "anim";
+
+      var missing = a.frames.filter(function (f) {
+        return !sprites.some(function (s) { return s.name === f; });
+      });
+      if (missing.length)
+        msgs.push(["err", 'Animation "' + n + '" names frame(s) that no ' +
+                   "longer exist (" + missing.join(", ") +
+                   ") - those frames get dropped."]);
+
+      if (a.fps <= 0)
+        msgs.push(["warn", 'Animation "' + n + '" has fps ' + a.fps +
+                   " - it will just show its first frame."]);
+    });
+
+    var already = {};
+    msgs.forEach(function (m) {
+      if (already[m[1]]) return;
+      already[m[1]] = 1;
+      var d = document.createElement("em");
+      d.className = m[0] + " anim-problem";
+      d.innerHTML = m[1];
+      box.appendChild(d);
+    });
+  }
+
+  function drawList() {
+    el("repack").disabled = !loaded || !sprites.length;
+
+    var body = el("list").querySelector("tbody");
+    body.innerHTML = "";
+    el("count").textContent = sprites.length ? "(" + sprites.length + ")" : "";
+
+    sprites.forEach(function (s, i) {
+      var tr = document.createElement("tr");
+      if (i === selected) tr.className = "sel";
+      tr.addEventListener("mousedown", function () {
+        selected = i; drawRects(); drawList();
+      });
+
+      tr.appendChild(cell(txt(s, "name", i)));
+      ["x", "y", "w", "h"].forEach(function (k) {
+        tr.appendChild(cell(num(s, k, i)));
+      });
+
+      var pv = document.createElement("td");
+      pv.appendChild(num(s, "pivotX", i, 0.05));
+      pv.appendChild(num(s, "pivotY", i, 0.05));
+      tr.appendChild(pv);
+
+      var del = document.createElement("td");
+      var b = document.createElement("button");
+      b.className = "mini"; b.textContent = "×";
+      b.addEventListener("click", function () {
+        sprites.splice(i, 1);
+        if (selected >= sprites.length) selected = sprites.length - 1;
+        render();
+      });
+      del.appendChild(b);
+      tr.appendChild(del);
+
+      body.appendChild(tr);
+    });
+
+    checkProblems();
+  }
+
+  function cell(node) { var td = document.createElement("td"); td.appendChild(node); return td; }
+
+  function txt(s, key, i) {
+    var inp = document.createElement("input");
+    inp.type = "text"; inp.value = s[key];
+    inp.addEventListener("input", function () {
+      var was = s[key];
+      s[key] = this.value;
+
+      // Carry the rename into every animation that used the old name,
+      // otherwise renaming a sprite silently guts its animation.
+      if (key === "name" && was !== s[key]) {
+        anims.forEach(function (a) {
+          a.frames = a.frames.map(function (f) {
+            return f === was ? s.name : f;
+          });
+        });
+        drawAnims();
+      }
+
+      drawRects(); drawPreview(); drawJson(); checkProblems();
+    });
+    return inp;
+  }
+
+  function num(s, key, i, step) {
+    var inp = document.createElement("input");
+    inp.type = "number"; inp.value = s[key];
+    if (step) inp.step = step;
+    inp.addEventListener("input", function () {
+      var v = parseFloat(this.value);
+      if (!isNaN(v)) { s[key] = v; render(); }
+    });
+    return inp;
+  }
+
+  function checkProblems() {
+    var msgs = [];
+    var W = srcCanvas.width, H = srcCanvas.height;
+    var seen = {};
+
+    sprites.forEach(function (s) {
+      var n = (s.name || "").trim();
+      if (!n) msgs.push(['err', 'A sprite has no name — the mod will skip it.']);
+      else if (seen[n.toLowerCase()])
+        msgs.push(['err', 'Two sprites are both called "' + n +
+                   '" — the mod keeps the first and warns about the rest.']);
+      else if (!/^[A-Za-z0-9_ -]+$/.test(n))
+        msgs.push(['warn', '"' + n + '" has unusual characters; stick to letters, ' +
+                   'digits and underscores to be safe.']);
+      seen[n.toLowerCase()] = 1;
+
+      if (loaded && (s.x < 0 || s.y < 0 || s.x + s.w > W || s.y + s.h > H))
+        msgs.push(['err', '"' + n + '" pokes outside the ' + W + '×' + H +
+                   ' sheet — the mod will skip it.']);
+      if (s.w <= 0 || s.h <= 0)
+        msgs.push(['err', '"' + n + '" has a zero size.']);
+    });
+
+    var box = el("problems");
+    box.innerHTML = "";
+    // De-dupe so a repeated fault does not spam the panel.
+    var already = {};
+    msgs.forEach(function (m) {
+      if (already[m[1]]) return;
+      already[m[1]] = 1;
+      var d = document.createElement("em");
+      d.className = m[0];
+      d.innerHTML = m[1];
+      box.appendChild(d);
+    });
+
+    // This wipes the panel, so animation problems have to be re-added.
+    checkAnimProblems();
+  }
+
+  // Draw each sprite at its true in-game size beside the stock 7x7 Popper
+  // bullet, so a scale mistake is impossible to miss.
+  function drawPreview() {
+    var host = el("preview");
+    host.innerHTML = "";
+    if (!loaded) return;
+
+    var ppu = Math.max(1, parseFloat(el("ppu").value) || 20);
+    var UNIT = 90;   // display px per world unit
+
+    host.appendChild(refCell(UNIT));
+
+    sprites.slice(0, 12).forEach(function (s) {
+      var uw = s.w / ppu, uh = s.h / ppu;
+      var cw = Math.max(6, Math.round(uw * UNIT));
+      var chh = Math.max(6, Math.round(uh * UNIT));
+
+      var cell = document.createElement("div");
+      cell.className = "prevcell";
+      var cv = document.createElement("canvas");
+      cv.width = cw; cv.height = chh;
+      var c = cv.getContext("2d");
+      c.imageSmoothingEnabled = false;
+      c.drawImage(srcCanvas, s.x, s.y, s.w, s.h, 0, 0, cw, chh);
+      cell.appendChild(cv);
+
+      var cap = document.createElement("div");
+      cap.innerHTML = (s.name || "?") + "<br>" +
+        uw.toFixed(2) + "×" + uh.toFixed(2) + " units";
+      if (uw > 1.5 || uh > 1.5) {
+        cap.innerHTML += '<br><span class="warn">big</span>';
+      }
+      cell.appendChild(cap);
+      host.appendChild(cell);
+    });
+
+    if (sprites.length > 12) {
+      var more = document.createElement("div");
+      more.className = "prevcell";
+      more.style.alignSelf = "center";
+      more.textContent = "+" + (sprites.length - 12) + " more";
+      host.appendChild(more);
+    }
+  }
+
+  function refCell(UNIT) {
+    var units = 7 / 20;   // the Popper bullet: 7 px at 20 ppu
+    var side = Math.round(units * UNIT);
+    var cell = document.createElement("div");
+    cell.className = "prevcell";
+    var cv = document.createElement("canvas");
+    cv.width = side; cv.height = side;
+    var c = cv.getContext("2d");
+    c.fillStyle = "#7fd4ff"; c.fillRect(0, 0, side, side);
+    cell.appendChild(cv);
+    var cap = document.createElement("div");
+    cap.innerHTML = "<b>Popper</b><br>0.35×0.35 units";
+    cell.appendChild(cap);
+    return cell;
+  }
+
+  // ---------- export ----------
+
+  function buildManifest() {
+    var out = {
+      sheet: (el("sheet-name").value || "myart.png").trim(),
+      // The size these rects were cut against. The mod compares it to the
+      // PNG it actually finds and shouts if they differ - that catches the
+      // easiest mistake in the whole workflow, which is cleaning up or
+      // shrinking the image here and then shipping the untouched original.
+      sheetWidth: loaded ? srcCanvas.width : 0,
+      sheetHeight: loaded ? srcCanvas.height : 0,
+      pixelsPerUnit: Math.max(1, parseFloat(el("ppu").value) || 20),
+      filter: el("filter").value,
+      sprites: sprites.map(function (s) {
+        var o = {
+          name: (s.name || "").trim(),
+          x: Math.round(s.x), y: Math.round(s.y),
+          w: Math.round(s.w), h: Math.round(s.h)
+        };
+        // Only emit a pivot when it is not the default, to keep files clean.
+        if (Math.abs(s.pivotX - 0.5) > 1e-6) o.pivotX = s.pivotX;
+        if (Math.abs(s.pivotY - 0.5) > 1e-6) o.pivotY = s.pivotY;
+        return o;
+      })
+    };
+
+    // Only emit frames that still exist, so the mod never has to warn
+    // about something this tool could have caught.
+    var live = anims.map(function (a) {
+      var o = {
+        name: (a.name || "").trim(),
+        fps: a.fps,
+        loop: a.loop,
+        frames: a.frames.filter(function (f) {
+          return sprites.some(function (s) { return s.name === f; });
+        })
+      };
+      if (a.randomStart) o.randomStart = true;
+      return o;
+    }).filter(function (a) { return a.frames.length > 0; });
+
+    if (live.length) out.animations = live;
+    return out;
+  }
+
+  function drawJson() {
+    var has = loaded && sprites.length > 0;
+    el("dl-json").disabled = !has;
+    el("copy-json").disabled = !has;
+
+    if (!has) {
+      el("json").textContent = "(load an image and cut a sprite)";
+      el("usage").textContent = '"weapon": { "projectileSprite": "..." }';
+      return;
+    }
+
+    var m = buildManifest();
+    el("json").textContent = JSON.stringify(m, null, 2);
+
+    // An animation is almost always what you meant if you made one.
+    var pick = (m.animations && m.animations.length)
+      ? m.animations[0].name
+      : (sprites[0].name || "mySprite").trim();
+
+    el("usage").textContent =
+      '"weapon": {\n  "projectileSprite": "' + pick + '"\n}';
+  }
+
+  el("dl-json").addEventListener("click", function () {
+    var name = (el("sheet-name").value || "myart")
+      .replace(/\.[^.]+$/, "") + ".json";
+    save(new Blob([JSON.stringify(buildManifest(), null, 2)],
+                  { type: "application/json" }), name);
+  });
+
+  // Always exports what is on screen (keyed / shrunk / GIF-converted), not
+  // the file that was opened.
+  el("dl-png").addEventListener("click", function () {
+    if (!loaded) return;
+    var name = (el("sheet-name").value || "myart").replace(/\.[^.]+$/, "") + ".png";
+    currentPngBlob().then(function (blob) {
+      if (blob) save(blob, name);
+    });
+  });
+
+  el("bg-auto").addEventListener("click", function () {
+    if (!loaded) return;
+    var dom = dominantColor();
+    if (!dom) return;
+    el("bg-color").value = toHex(dom.rgb[0], dom.rgb[1], dom.rgb[2]);
+    el("bg-on").value = "1";
+    reprocess();
+  });
+
+  ["bg-color", "bg-tol", "bg-on", "scale-pct", "scale-snap"].forEach(function (id) {
+    el(id).addEventListener("input", reprocess);
+    el(id).addEventListener("change", reprocess);
+  });
+
+  el("copy-json").addEventListener("click", function () {
+    var text = el("json").textContent;
+    var btn = this;
+    function done() {
+      btn.textContent = "Copied!";
+      setTimeout(function () { btn.textContent = "Copy JSON"; }, 1200);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else fallback();
+
+    function fallback() {
+      var a = document.createElement("textarea");
+      a.value = text; document.body.appendChild(a); a.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(a); done();
+    }
+  });
+
+  function save(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  ["sheet-name", "ppu", "filter"].forEach(function (id) {
+    el(id).addEventListener("input", function () { drawPreview(); drawJson(); });
+    el(id).addEventListener("change", function () { drawPreview(); drawJson(); });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -505,10 +505,32 @@ These are TOP-LEVEL keys (not inside "weapon"):
   "orbitHitRadius": 0.6     how big each orb's contact area is.
   "orbitVisual": "Ammo_Worm"  which projectile art to use as the orbs
                             (default: the weapon's own projectile).
+
+  TERRAIN (optional):
+  Orbs are NOT real projectiles - they're art positioned every frame, with
+  their colliders switched off - so they have no collision layer of their
+  own and there is nothing to "put on the projectile layer". By default they
+  simply pass over walls. That is not phasing, and the phasing flag has no
+  effect on them either way. Two separate switches control terrain:
+  "orbitDamageTerrain": true  orbs DIG. Each touch is handed to the level as
+                            a real projectile hit, so the cell takes the
+                            weapon's damage, shakes, catches fire from the
+                            weapon's burn, and breaks if the damage beats the
+                            cell's resistance - the same rules a normal shot
+                            plays by, so a weak orbit won't bore through
+                            tough rock. The weapon's explosion/discharge are
+                            NOT re-spawned per dig tick (that would be a
+                            continuous blast); they still fire on enemy hits.
+  "orbitTerrainRepeatDelay": 0.15  seconds between cell hits PER ORB. One orb
+                            breaks at most one cell per tick, so this is
+                            your dig speed. Lower = faster tunnelling.
   DESTRUCTIBLE ORBS (optional):
   "orbitDestroyOnEnemy": true   orb is destroyed when it hits an enemy.
-  "orbitDestroyOnTerrain": true orb is destroyed when it hits terrain
-                            (fixes orbs phasing through walls forever).
+  "orbitDestroyOnTerrain": true orb is destroyed when it touches terrain.
+                            This kills the ORB - it does not hurt the wall.
+                            Combine with orbitDamageTerrain for an orb that
+                            punches one hole and pops, and orbitRegenMode to
+                            bring it back.
   "orbitRegenMode":         how a destroyed orb comes back:
      "both"  timer AND on fire/toggle (default)
      "timer" only after orbitRegenTime seconds (best for passive)
@@ -570,6 +592,9 @@ FOUR THINGS THAT MATTER:
 2. IT NEEDS A TRIGGER. Setting subEmitter alone does nothing - the sub
    only fires where you set "fireSub": true:
      rangeData.fireSub        when the shot reaches max range
+                              (STRAIGHT shots only - a LOBBED
+                              shot has no range trigger at all,
+                              see below)
                               (also needs enabled + destroyWhenReached)
      lifetimeData.fireSub     when the shot's timer runs out
      impactBehaviour.fireSub  on impact - works on ENEMIES AND TERRAIN
@@ -583,15 +608,23 @@ FOUR THINGS THAT MATTER:
    heading. Give the sub weapon "spread": 360 (plus a few
    projectileCount) so it bursts outward like shrapnel.
 
-4. CHAINING + LOAD ORDER. A sub can have its own subEmitter, so chains
-   nest as deep as you like. Weapon files load ALPHABETICALLY, and a sub
-   must already be built when the weapon referencing it loads - so name
-   the files in REVERSE chain order:
-     00_Shrapnel.json  (deepest sub, no subEmitter)
-     01_PopperSub.json (subEmitter -> Forge Weapon White Shrapnel Sub)
-     FlakCannon.json   (subEmitter -> Forge Weapon White Popper Sub)
+4. CHAINING. A sub can have its own subEmitter, so chains nest as deep
+   as you like.
+   FILE ORDER NO LONGER MATTERS. subEmitter names are now resolved AFTER
+   every weapon file has been built, so a sub may live in a file that
+   sorts before or after the weapon using it. (It used to matter, and it
+   failed silently: "cocktail.json" sorts before "cocktailFlame.json", so
+   the cocktail looked for a flame that did not exist yet and quietly got
+   none. If you see an older guide telling you to prefix files 00_, 01_,
+   that is why - it is no longer needed, though it does no harm.)
+   You can also just use the sub's own "name": both
+     "subEmitter": "Cocktail Flame"
+     "subEmitter": "Forge Weapon Cocktail Flame"
+   resolve to the same weapon. Stock weapons use their asset name, e.g.
+   "Weapon Caps Flame".
    WARNING: a chain that loops back on itself (A -> B -> A) will hang
-   the game on load. Keep chains one-way.
+   the game on load. Keep chains one-way. A sub pointing at ITSELF is
+   caught and ignored with a warning.
 
 HIDING THE HELPER SUBS: a sub weapon works even if you can never obtain
 it, so keep them out of your runs with "source": "none".
@@ -681,21 +714,31 @@ These go inside the "weapon": { } block and work on every type.
   "fireRate": 5             Shots per second.
   "warmupTime": 0.5         Seconds of holding fire before the
                             first shot (charge-up).
-  "damageRepeatDelay": 0.1  HITSCAN / LASER weapons only (e.g. the Caps
+  "damageRepeatDelay": 0.1  HITSCAN / LASER weapons ONLY (e.g. the Caps
                             Laser): seconds between damage ticks on a
                             target you're holding the beam on. Lower =
                             damages faster. Default 0.25 (4 ticks/sec).
                             NOTE: also gated by fireRate - the beam only
                             re-checks for damage each "shot", so keep
                             fireRate high enough to hit your intended tick
-                            rate. (Projectiles use piercingData's own
-                            damageRepeatDelay instead - see below.)
+                            rate.
+                            It is not a field on any other weapon type, so
+                            on a projectile weapon it is SILENTLY DISCARDED
+                            (the log still says the weapon built fine).
+                            Projectiles have their own, inside
+                            "piercingData": { "damageRepeatDelay": ... }.
   "burstSize": 3            Shots per trigger pull (burst fire).
   "burstDelay": 0.08        Seconds between burst shots.
-  "projectileCount": 5      Projectiles per shot (shotgun!).
-  "spread": 30              Total spread angle in degrees when
-                            projectileCount > 1.
-  "angleVariance": 4        Random inaccuracy in degrees.
+  "projectileCount": 5      Projectiles per shot (shotgun!). It is a
+                            FLOAT and rounds UP in effect: 2.5 fires 3.
+  "spread": 30              Total width of the evenly-spaced fan, in
+                            degrees. IGNORED ENTIRELY when
+                            projectileCount is 1 - see 6a. Use 360 for a
+                            full ring (that value is special-cased so
+                            two shots don't land on the same angle).
+  "angleVariance": 4        Random inaccuracy in degrees, applied per
+                            shot. THIS is the knob for a single-shot
+                            weapon's accuracy, not "spread".
   "angleOffset": 0          Rotates the whole firing pattern.
   "knockbackForce": 2       Recoil pushing YOUR ship backward.
   "pushForce": 1            Force applied to whatever you hit.
@@ -707,15 +750,492 @@ These go inside the "weapon": { } block and work on every type.
   "barrelLength": 0.5       How far from the ship shots spawn.
   "explosion": {
       "radius": 2,
-      "damages": [ { "amount": 4, "damageType": "Resource Caps" } ]
+      "damages": [ { "amount": 4, "damageType": "Resource Caps" } ],
+      "sfx": "6d3022f0-9b78-4030-b8a7-ac9468466f59",
+      "skipCamShake": true
   }
+      NOTE "damages" is a LIST, and it also picks the visuals: entry 1
+      chooses the base explosion art and each extra entry layers that
+      element's add-on art on top. So a two-entry list is the ONLY way to
+      get a mixed-element blast. NEVER leave it empty while radius > 0 -
+      the game reads entry 1 unconditionally and errors.
+      "sfx" is the boom, as an audio GUID (see SOUND below).
+  "explosionColor": "#33ddff"   RECOLOR THE BLAST.
+  "explosionRgbSpeed": 0.5      The game has no explosion colour of its own:
+                            a stock explosion takes its look from the FIRST
+                            entry in "damages" - i.e. from the damage TYPE
+                            (White reads orange-white, Electron blue, and so
+                            on). So without this key the only way to change
+                            the colour is to change what the damage counts
+                            as, which changes the maths too. This tints the
+                            burst directly and leaves the damage alone.
+                            Accepts the same values as projectileColor: hex,
+                            an HTML colour name, a game colour
+                            ("ColorBlue"), or "rainbow" / "rgb".
+                            It MULTIPLIES the artist's particle gradient, so
+                            the fade survives and a DARK value dims the blast
+                            instead of darkening it - use bright hues.
+                            "rainbow" cannot cycle within one blast (a blast
+                            is a single burst), so instead each explosion
+                            takes the next hue and rapid fire walks the
+                            wheel; explosionRgbSpeed is how fast (hue/sec).
+                            Applies to impact, lifetime, lobbed and
+                            orbit-orb explosions alike.
+                            KNOWN LIMIT: the brief LIGHT FLASH an explosion
+                            throws still uses the damage type's colour. That
+                            one is read straight off the shared resource
+                            asset, so overriding it would recolour every
+                            explosion of that element in the game - not worth
+                            it for a fraction of a second of flash.
+      "skipCamShake": true stops the blast shaking the camera - the fix
+      for a fast-firing explosive turning the screen to mush. This shake
+      is separate from "shakePreset": the explosion one is auto-scaled by
+      radius and can only be suppressed, never swapped.
   "discharge": {            Chain lightning burst (needs a
       "damage": { "amount": 3, "damageType": "Resource White" },
       "chainLength": 5,        trigger - see lifetimeData /
-      "subSystem": "Player"    impactBehaviour "discharge": true)
+      "subSystem": "Player",   impactBehaviour "discharge": true)
+      "layerMask": "Entities"
   }
+      "layerMask" is which layers the lightning may hop to. Every stock
+      weapon uses "Entities" (enemies). Accepts a name, a list of names,
+      or a raw bitmask number. WARNING: a misspelled layer name silently
+      becomes "hits nothing" - nothing warns you, so copy it exactly.
   "aimAssistData": { "enabled": true, "maxAngle": 15,
                      "isPredictive": true }
+
+  SOUND, SHAKE & MUZZLE - every stock weapon sets most of these, and
+  until now a forged weapon just inherited whatever its template had.
+  All of them point at something the game already ships: sounds by audio
+  GUID, everything else by asset NAME. A value the game doesn't know is
+  skipped silently, so use the builder's pickers.
+
+  "shootSfx": "d39fd50f-9e3e-41ef-9ccd-f00c2282dbb1"
+                            The firing sound, once per volley. The only
+                            sound field that works in EVERY slot -
+                            primary, secondary, gadget AND sub-emitter
+                            stages. Must be the GUID: the lookup compares
+                            GUIDs only, so "Weapons/Bolt/Shoot" is
+                            silence. Handy ones:
+                              Popper   891a1b2e-39c4-4a79-bcc9-6b89523a429d
+                              Bolt     d39fd50f-9e3e-41ef-9ccd-f00c2282dbb1
+                              Shotgun  3c33af41-a69f-48ef-bfad-4dfc832c3ed0
+                              Worm     0a935746-47fa-4289-8e15-85cdc9654830
+                              Blades   9eb980c5-e062-4bd2-8542-ab006384856f
+                              Derbis   819a0502-ee97-4cae-ac1b-9b1f5a25e2b3
+                              Marbles  b4f0a35e-3bd1-458f-a672-c0aed298c6eb
+                              Dart     3da1c704-cb77-4f4a-9b07-91849362b2bd
+                              Toroid   2006c890-c2b5-460d-93fa-ea8ff10dc66d
+                              Laser    b64bac2d-d394-4d46-a5a3-343333b65a51
+  "reloadSfx": "c3120d6d-d216-4f5b-b6ad-36229edbc203"
+                            Plays when the cooldown ends. 79 of the 80
+                            stock projectile weapons use this exact one.
+  "continousShootSfx"       A LOOPING sound while you hold fire, for
+  "startSfx"                beams and flamethrowers, plus the one-shots
+  "releaseSfx"              for spin-up and spin-down. Only Flame and
+                            Laser use them in stock. Yes, the game
+                            really spells it "continous". These are
+                            primary/secondary only - a gadget never
+                            starts the loop. GOTCHA: releaseSfx only
+                            fires if the loop actually started, so never
+                            write "continousShootSfx": null and expect a
+                            release sound - just omit the field.
+                              Flame  shoot c63c92e3.. is START,
+                                     loop  e8fc5ecf.., release 0b773c09..
+  "warmupSfx": "ea8fb19f-4770-4b84-b478-95d30b805d6e"
+                            Charge-up sound; pair with warmupTime. No
+                            stock projectile weapon sets it (that GUID is
+                            the Laser's).
+  "shakePreset": "Shake_Gunshot_Small"
+                            Screen shake per shot. You can only SWAP
+                            presets, never tune one. Options:
+                            Shake_Gunshot_Small (33 stock weapons),
+                            Shake_Gunshot_Medium, SmallExplosion,
+                            Shake_Explosion, Shake_Explosion_MIN,
+                            Shake_Explosion_Long, Shake_Explosion_MAX,
+                            Shake_Collision, Shake_Excavate,
+                            Shake_Wound, Shake_Shipdamage.
+                            Two warnings: it comes from the ship's
+                            shooter, so a GADGET-slot weapon never
+                            shakes; and high fireRate +
+                            Shake_Explosion_MAX is genuinely
+                            unplayable.
+  "rumblePreset": "Rumble WeaponShot Small"
+                            Gamepad rumble per shot. Same gadget
+                            limitation, and inert on keyboard/mouse.
+                            Options: Rumble WeaponShot Small (43 stock),
+                            Medium, Large, Derbis, Flame.
+  "muzzleParticlePrefab": "MuzzleParticle Popper"
+                            Flash at the barrel. One instance is
+                            pre-made per projectile, so a big
+                            projectileCount with a heavy prefab costs
+                            performance. Options: MuzzleParticle Popper
+                            (53 stock), PopperRed, Fly, Beacon, Sniper,
+                            Cross, CrossAlpha.
+  "muzzleColor": "#33ddff"  Recolor that flash. Same value styles as
+  "muzzleRgbSpeed": 0.5     projectileColor: hex (#rrggbb or #rrggbbaa),
+                            an HTML color name ("cyan"), a game color
+                            ("ColorBlue"), or "rainbow" / "rgb" for an
+                            animated cycle (muzzleRgbSpeed = hue cycles
+                            per second, default 0.5, negative to cycle
+                            backwards, kept separate from rainbowSpeed so
+                            the flash and the shot can cycle at different
+                            rates). A flash lives a fraction of a second,
+                            so a slow rainbow reads as "every shot is a
+                            slightly different color" rather than as a
+                            visible cycle - raise the speed if you want
+                            the flicker itself to rainbow.
+
+                            HOW IT WORKS, because it matters: a muzzle
+                            flash has no single "color" field. Its color
+                            lives in the particle system's startColor,
+                            and the stock ones store it as a RANDOM COLOR
+                            picked along a gradient that runs white ->
+                            transparent - that random pick is what makes
+                            the flash flicker. Both the prefab root AND
+                            its child (Particle_muzzleFlash2) have their
+                            own. So muzzleColor MULTIPLIES that gradient
+                            instead of replacing it: the flicker and the
+                            fade-out survive, and only the hue changes.
+                            Consequences:
+                              - a DARK value dims the flash rather than
+                                darkening it. Use bright hues.
+                              - pure white does nothing (x1).
+                              - alpha in a hex value (#rrggbbaa) scales
+                                the flash's own alpha, so #ffffff80 is a
+                                half-strength flash.
+
+                            ONE MORE WRINKLE: four of the muzzle prefabs -
+                            PopperRed, Laser, LaserRed and CrawlerLaser -
+                            also bake a COLORED fade into the particle
+                            (colorOverLifetime: white -> red, or -> blue),
+                            and Unity multiplies that into startColor. Left
+                            alone, cyan x red = black, so a tinted PopperRed
+                            flash would mostly vanish. So tinting first
+                            drains that baked ramp of hue, keeping only its
+                            brightness curve: you get your color with the
+                            prefab's fade shape. The upshot is that tinting
+                            PopperRed no longer looks red at all - that was
+                            the point - and the seven prefabs with no
+                            colored ramp are unaffected either way.
+                            The prefab is SHARED by 53 stock weapons, so
+                            the mod tints a private clone - your weapon
+                            can never recolor anyone else's flash.
+                            Needs a muzzleParticlePrefab to exist (the
+                            template's own counts); if there is none you
+                            get a warning in the log and nothing else.
+  "reloadParticlePrefab": "reloadParticle_weapon_Popper"
+                            Puff when the weapon comes off cooldown.
+                            Only 9 stock weapons bother, all with this
+                            one.
+  "projectileSprite": "myBullet"
+                            YOUR OWN ART instead of the game's. Put a PNG in
+                            the "sprites" folder next to the DLL and name it
+                            here. Projectile weapons only for now (a beam's
+                            art is stretched and tiled, which needs 9-slice
+                            borders - not wired up yet).
+
+                            EASIEST WAY: open "Sprite Sheet Builder.html"
+                            (ships beside the weapon builder). Drop your PNG
+                            in, drag boxes / auto-detect / grid-slice, and it
+                            writes the .json for you. It also converts a GIF
+                            into a PNG sheet, because the engine cannot read
+                            GIF at all.
+
+                            BY HAND: drop "myBullet.png" in the sprites
+                            folder and that whole image becomes a sprite
+                            called "myBullet". For several sprites out of one
+                            sheet, add a .json beside it:
+                              { "sheet": "myart.png",
+                                "pixelsPerUnit": 20,
+                                "sprites": [
+                                  { "name": "myBullet",
+                                    "x": 0, "y": 0, "w": 8, "h": 8 } ] }
+
+                            *** NAMING - the one everybody trips on ***
+                            This key takes the name of a THING INSIDE the
+                            sheet, never the .png or .json filename. A sheet
+                            holds two kinds of named thing:
+                              sprites    still frames. The slicer names them
+                                         <sheet>, <sheet>_1, <sheet>_2 ...
+                                         (those numbers only keep the names
+                                         unique - they are NOT frame numbers)
+                              animation  the flipbook. The slicer names it
+                                         <sheet>Anim
+                            So for petrolbm.png:
+                              "projectileSprite": "petrolbm"      -> ONE
+                                                  frozen frame
+                              "projectileSprite": "petrolbmAnim"  -> the
+                                                  animation
+                            Both are legal, so the mod cannot reject either -
+                            but it now logs a hint when you name a frame that
+                            is also frame 1 of an animation. The slicer's
+                            export panel always shows the exact line to paste
+                            and prefers the animation when there is one.
+
+                            ANIMATED: add an "animations" block and point
+                            projectileSprite at the ANIMATION's name - the
+                            key is the same, and the mod works out whether a
+                            name means a still sprite or a flipbook:
+                              "animations": [
+                                { "name": "spinBullet",
+                                  "fps": 12,
+                                  "loop": "loop",
+                                  "randomStart": true,
+                                  "frames": [ "f0","f1","f2","f3" ] } ]
+                              frames      play order, taken from THIS array
+                                          and nothing else. The "_1"/"_2"
+                                          numbers the slicer adds to
+                                          auto-named sprites only keep names
+                                          unique - they are NOT frame
+                                          numbers, and renaming a sprite
+                                          does not reorder anything.
+                              fps         frames per second. 0 or less just
+                                          shows the first frame.
+                              loop        "loop" (default) / "once" (stops
+                                          on the last frame) / "pingpong".
+                              randomStart every shot starts on a random
+                                          frame. Turn this ON for a shotgun:
+                                          otherwise all ten pellets flip in
+                                          lock-step and read as one strobe
+                                          rather than ten spinning bullets.
+                            Frames may come from any sheet in the folder.
+                            Sprites and animations share ONE pool of names,
+                            so an animation cannot reuse a sprite's name.
+                            The game's own projectiles are all static - no
+                            stock ammo prefab has an Animator - so this is
+                            purely a Forge addition.
+
+                            THINGS THAT WILL BITE YOU:
+                              - x,y is the rect's TOP-LEFT corner and y counts
+                                DOWNWARD, like every image editor. (Unity is
+                                bottom-up internally; the mod flips it.)
+                              - SCALE: 20 pixels = 1 world unit, and stock art
+                                is tiny (the Popper bullet is 7x7 px = 0.35
+                                units). A 64x64 PNG is ~9x too big - draw
+                                small, or raise pixelsPerUnit to shrink it.
+                              - GIF never works at runtime. PNG or JPG only.
+                              - Your names live in their own namespace, so
+                                they can never collide with the game's ~450
+                                sprites. Two of YOUR sheets reusing one name
+                                will collide, and the log names it.
+                              - Art loads uncompressed; a few small PNGs are
+                                free, a hundred big ones cost memory.
+                            Anything unreadable is logged under
+                            "WeaponForge.Sprites" - a bad name just falls back
+                            to the template's art.
+  "projectileGlow": false   MY CUSTOM SPRITE LOOKS WASHED OUT / RECOLORED?
+                            This is the fix, and nothing is actually tinting
+                            it. Some ammo prefabs render through the game's
+                            EMISSIVE sprite shader, which is correct for a
+                            glowing blob but blows detailed art out toward
+                            white. White Derbis does exactly this, so custom
+                            art on a lobbed weapon usually wants
+                            "projectileGlow": false.
+                              false  swap in SpriteUnlitAA - the plain unlit
+                                     material the Popper uses, draws art as
+                                     painted
+                              true   force EmissiveUnlitSprite - the glow -
+                                     onto a weapon that didn't have it
+                              omit   keep whatever the template used
+  "projectileMaterial": "SpriteUnlitAA"
+                            Escape hatch: name ANY material asset in the game
+                            and it is applied to the shot's sprite renderers.
+                            Overrides projectileGlow when both are set. The
+                            two that matter are SpriteUnlitAA (as painted)
+                            and EmissiveUnlitSprite (glow).
+  "projectileSpriteOnly": true
+                            "MY SPRITE IS DRAWN ON TOP OF THE OLD ONE" - this
+                            is the fix. A projectile prefab is more than one
+                            sprite: ammo_Popper carries THREE child particle
+                            systems (particle, particle_glow, trail),
+                            ammo_Worm two, ammo_Bolt a trail. projectileSprite
+                            only replaces the SPRITE RENDERER, so those
+                            particles carry on emitting the template's own
+                            glow and trail around your art.
+                            true switches all the extras off (other sprite
+                            renderers, particle systems, trails, lines) and
+                            leaves only the sprite you supplied.
+                            Off by default, because keeping the template's
+                            glow over your own art often looks good - it is
+                            only wrong when you were not expecting it.
+                            TIP: "Module Weapon White Derbis" has no extra art
+                            at all, which is why custom sprites look clean on
+                            it without this.
+
+  "trail": { ... }          A STREAK BEHIND THE SHOT. Read the next paragraph
+                            first - it explains every option in one go.
+
+                            HOW TRAILS WORK IN THIS GAME. There are no ribbon
+                            trails in PUNK. Not one TrailRenderer exists in the
+                            whole game, and no prefab turns on Unity's "Trails"
+                            module. Every trail is the same thing instead: a
+                            small PARTICLE SYSTEM riding along with the shot,
+                            dropping little sprite puffs PER UNIT TRAVELLED and
+                            leaving them behind in world space. A trail is a
+                            line of stamps, not a stretched ribbon - which is
+                            exactly why your own sprites can be the puffs.
+                            Because it counts distance and not time, the streak
+                            keeps the same density at any projectile speed.
+                            That is why "perUnit" is the knob you want.
+
+                            Only FOUR ammo prefabs ship a trail (ammo_Popper,
+                            ammo_Bolt, Ammo Blades, Ammo Enemy Turret Sniper).
+                            For anything else the mod copies the Popper's trail
+                            onto your shot and then applies your settings, so
+                            these options work on any projectile.
+
+                            Every option is optional. Blank keeps the stock
+                            Popper/Bolt value, so this alone already looks like
+                            it belongs in the game:
+                              "trail": true
+
+                            Shorthands:
+                              "trail": true        add a stock trail
+                              "trail": false       REMOVE the template's trail
+                                                   (nice on the Popper/Bolt
+                                                   when your own art should fly
+                                                   clean)
+                              "trail": "myPuff"    add one made of that sprite
+
+                            Full form and what each key does:
+
+                            "trail": {
+                              "enabled":   true,     false removes it
+                              "sprite":    "myPuff", puff art - see below
+                              "color":     "orange", or #hex, or "rainbow"
+                              "rgbSpeed":  0.5,      rainbow only, hue cyc/sec
+                              "perUnit":   20,       puffs per world unit
+                              "lifetime":  0.025,    seconds each puff lives
+                              "size":      0.8,      puff size, world units
+                              "sizeEnd":   0,        shrink to this by death
+                              "fade":      true,     fade out over its life
+                              "speed":     0,        outward drift
+                              "gravity":  0,         pull once dropped
+                              "perSecond": 0,        puffs/sec - see below
+                              "fps":       0,        animated puffs only
+                              "sortingOffset": -1,   draw order vs the bullet
+                              "template": "ammo_Popper"
+                            }
+
+                              perUnit   THE MAIN KNOB. Density of the streak.
+                                        Stock 20. Lower = dotted/beaded,
+                                        higher = a solid line.
+                              lifetime  How LONG the streak is. Stock is a
+                                        startlingly short 0.025, which is why
+                                        the Popper's trail is a tight smear and
+                                        not a comet tail. Try 0.2-0.5 for
+                                        something you can actually see trailing
+                                        behind. 0 means each puff dies the
+                                        instant it spawns - the log warns.
+                              size      Thick vs hairline. Stock 0.8. NOTE
+                                        projectileScale does NOT scale the
+                                        trail (the stock systems are set to
+                                        ignore their parent's scale), so size
+                                        it here.
+                              sizeEnd   Size each puff has reached by the end
+                                        of its life. 0 tapers the trail to a
+                                        point, which reads as speed. LARGER
+                                        than "size" makes puffs swell as they
+                                        age instead - expanding smoke, or a
+                                        contrail widening behind the shot. Omit
+                                        for constant width.
+                              fade      Dissolves the streak behind the shot
+                                        instead of it stopping dead. Pairs well
+                                        with sizeEnd 0. Safe with "color" - the
+                                        fade is pure alpha, so it cannot muddy
+                                        your tint.
+                              speed     Stock 0: puffs sit exactly where they
+                                        were dropped, which is what makes a
+                                        clean line. Non-zero scatters them
+                                        outward for smoke or sparks. 0.2-1
+                                        looks like drifting exhaust; large
+                                        values stop reading as a trail.
+                              gravity   Positive falls, negative rises (rising
+                                        smoke). Only worth it with a longer
+                                        lifetime, or the puff dies before it
+                                        has moved.
+                              perSecond Stock 0 and usually leave it there: per
+                                        second makes the trail bunch up when
+                                        the shot is slow and thin out when it
+                                        is fast, the opposite of what a trail
+                                        should do. Its one real use is a puff
+                                        that keeps emitting while the shot sits
+                                        still. If perUnit and perSecond are
+                                        BOTH 0 nothing is emitted; the log says
+                                        so.
+                              sortingOffset
+                                        Default -1 = one step behind the
+                                        bullet, what the stock trails do. Use 1
+                                        to draw the trail OVER the bullet.
+                              template  Which prefab's trail to copy when your
+                                        shot has none. Defaults to ammo_Popper.
+                                        All four stock trails are set up
+                                        near-identically, so there is rarely a
+                                        reason to change this.
+
+                            THE SPRITE. "sprite" takes a name from your own
+                            "sprites" folder OR any sprite in the game, and the
+                            custom folder is searched first. Stock puffs worth
+                            trying: part_cyrcle_0 ... part_cyrcle_19 are
+                            circles from tiny to fat (the stock trail uses
+                            part_cyrcle_12 - yes, the game really spells it
+                            "cyrcle"), part_engineFIre_0 is a flame,
+                            part_impact_Bark_0 a debris chip.
+
+                            AN ANIMATION WORKS HERE. Name an "...Anim" and the
+                            whole flipbook is loaded onto the particle, so
+                            EVERY PUFF plays the full sequence over its own
+                            lifetime and then dies. That is a different look
+                            from an animated projectile - the shot stays still
+                            and the trail churns. Same naming rules as
+                            projectileSprite: a bare sheet name is one frozen
+                            frame, "<sheet>Anim" is the flipbook. By default the
+                            sequence is stretched across each puff's lifetime so
+                            it finishes exactly as the puff dies; set "fps" to
+                            pin it to a fixed frame rate instead.
+                            A name that isn't found is logged and the stock puff
+                            is kept, so a typo never leaves an invisible trail.
+
+                            COLOUR OWNERSHIP. Setting "color" CLAIMS the trail's
+                            colour: projectileColor (and its rainbow, if any)
+                            will then leave the trail alone instead of painting
+                            over it. So a white bullet can trail orange. Leave
+                            "color" out and the trail follows the shot's colour
+                            like the stock ones do.
+
+                            WORKS WITH projectileSpriteOnly. Deliberately:
+                            projectileSpriteOnly silences every particle system
+                            on the shot, and THEN the trail is built back up. So
+                            "just my sprite, plus a trail I control" is a legal
+                            and useful combination, and the order of the keys in
+                            your file does not matter.
+
+  WHICH WAY DOES A PROJECTILE FACE?
+                            DRAW IT POINTING RIGHT (+X). The game turns a shot
+                            with FromToRotation(Vector2.right, direction), so
+                            the sprite's RIGHT edge is the nose and its LEFT
+                            is the tail. A centred pivot (0.5, 0.5 - what the
+                            slicer writes by default) spins it about its
+                            middle; move the pivot if you want it to pivot
+                            about the tail.
+
+                            The catch differs by weapon type:
+                              LOBBED (usePhysics true)  rotated the instant it
+                                    spawns, so it always points along its
+                                    travel. Nothing to set.
+                              STRAIGHT (usePhysics off) spawns with NO
+                                    rotation at all. It is only turned if you
+                                    set
+                                      "rotationData": { "enabled": true,
+                                        "orientationAlignment": "WhenShot" }
+                                    Without that, your sprite keeps whatever
+                                    angle you drew it at no matter which way
+                                    you fire - which looks like the art is
+                                    flying sideways.
+                            (Reminder: "Continuous" is a dead enum value, so a
+                            curving shot cannot re-aim itself mid-flight.)
+
   "projectileColor": "#33ddff"
                             Recolor the projectile or beam. Accepts a
                             hex value ("#33ddff"), an HTML color name
@@ -724,6 +1244,17 @@ These go inside the "weapon": { } block and work on every type.
                             Projectiles: tints sprites/trails/particles.
                             Hitscan: tints the beam sprite, light, and
                             impact particle.
+                            It MULTIPLIES, so it fights your own art - leave
+                            it out (or use white) when you have set
+                            projectileSprite. Two useful extremes:
+                              "#ffffff00"  makes the shot completely
+                                           INVISIBLE (alpha 0). Genuinely
+                                           useful for an unseen carrier
+                                           shot, a pure-explosion weapon, or
+                                           a turret disc you don't want to
+                                           see.
+                              a dark value dims the shot rather than
+                                           darkening it.
   "rainbowSpeed": 0.5       Rainbow only: hue cycles per second (0.5 =
                             a full rainbow every 2 seconds). Default 0.5.
   "projectileScale": 1.5    Size multiplier. Projectiles: bigger shot
@@ -748,10 +1279,85 @@ These go inside the "weapon": { } block and work on every type.
                             it's installed (no conflict); they also work
                             with Weapon Forge alone.
 
-Sound fields (shootSfx, startSfx, warmupSfx, releaseSfx...) exist
-but must exactly match sound ids already in the game's audio
-database - wrong ids are silent, not broken. Easiest is to keep
-the template's sounds.
+CUSTOM SOUNDS
+-------------
+The sound fields take EITHER a sound id the game already has, OR the
+name of an audio file you supply. Drop a file in a "sounds" folder
+next to the DLL and use its file name without the extension:
+
+  sounds/mylaser.wav   ->   "shootSfx": "mylaser"
+
+The seven slots, and when each one plays:
+
+  shootSfx           once per volley, at the barrel. Works in EVERY
+                     slot - primary, secondary, gadget, and
+                     sub-emitter stages.
+  reloadSfx          when the cooldown finishes and the weapon is
+                     ready again.
+  startSfx           one-shot as the trigger goes down.
+  continousShootSfx  LOOPS while the trigger is held (beams,
+                     flamethrowers). Game's own typo - one 'u'.
+                     Primary/secondary only; a gadget never starts it.
+  releaseSfx         one-shot when that loop stops.
+  warmupSfx          LOOPS during warmupTime.
+  explosion.sfx      the boom (inside the "explosion" block).
+
+FILE TYPES
+  .wav   BEST. Decoded directly by the mod - always works, and the
+         clip is ready instantly. Any bit depth (8/16/24/32-bit PCM
+         or 32-bit float), mono or stereo.
+  .ogg   Works. Decoded by the engine a frame after startup.
+  .mp3   Usually works, but it leans on the platform's decoder. If a
+         file stays silent, convert it to .wav.
+  .aiff  Same route as ogg.
+The GAME cannot load audio files at all - it ships pre-baked clips -
+so this is the mod decoding your file and handing the engine a real
+AudioClip.
+
+IT BECOMES A REAL GAME SOUND. The clip is registered into the game's
+own audio database, so 3D positioning, the in-game SFX volume slider,
+the audio mixer, voice pooling and repeat throttling all apply to it
+exactly as they do to a stock sound. Anything you don't specify is
+COPIED FROM THE SOUND YOU REPLACED, so a custom beam loop loops and a
+custom gunshot doesn't.
+
+  continousShootSfx and warmupSfx are FORCED to loop no matter what
+  they replaced. The game starts those, keeps the handle, and stops
+  them by handle later - a one-shot there would play once and never
+  restart. Give them a seamless loop; they get cut off when you let
+  go of the trigger, which is what releaseSfx is for.
+
+TOO LOUD? Very likely - exported audio is usually much hotter than
+the game's. Put a .json beside the audio file with the SAME NAME:
+
+  mylaser.wav
+  mylaser.json   ->  { "volume": 0.6 }
+
+  volume          0 to 1. The first thing to reach for.
+  looping         true/false (set for you on the two held slots).
+  is3d            true = positioned in the world (default),
+                  false = flat.
+  priority        0-256, lower wins when sounds compete.
+  repeatMinDelay  seconds before the same sound may retrigger. Raise
+                  it if a fast weapon sounds like a buzzsaw.
+  cancelPrevious  true = a new play stops the previous one.
+  variants        several files picked at RANDOM per shot, which is
+                  how the game's own gunshots avoid sounding
+                  mechanical:
+                    { "variants": ["shot1.wav", "shot2.wav"] }
+                  Files listed here don't also become sounds of their
+                  own.
+
+NO PITCH CONTROL exists - the game never touches AudioSource.pitch,
+so bake pitch variation into the files (that is what variants are
+for).
+
+A misspelled name is reported in the log with a list of the sounds
+that DID load, and the slot goes silent rather than falling back - so
+check the log if a weapon loses its sound. For a STOCK sound the
+value must be the audio GUID, not the readable path: the lookup
+compares GUIDs only, so "Weapons/Bolt/Shoot" is silence. The builder
+page has pickers for the stock ones.
 
 Projectile/beam color is NOT tied to the damage resource in this
 game - changing damageType recolors damage numbers/UI only, not the
@@ -774,10 +1380,42 @@ PROJECTILE templates also accept:
                                projectile - steal its look!
   "rangeData": { "enabled": true, "range": 10, "variance": 1,
                  "slowDown": false, "destroyWhenReached": true,
-                 "spawnExplosion": false, "fireSub": false }
+                 "spawnExplosion": false, "fireSub": false,
+                 "destroyEffect": "EndParticle Ammo Toroid" }
   "lifetimeData": { "enabled": true, "time": 3,
-                    "timeVariance": 0.5, "spawnExplosion": true,
-                    "fireSub": false, "discharge": false }
+                    "spawnExplosion": true,
+                    "fireSub": false, "discharge": false,
+                    "spawnOnTimeDown": "Explosion Ammo Fireball" }
+      "timeVariance" exists in lifetimeData but DOES NOTHING - nothing
+      reads it. For a randomised despawn use rangeData range+variance.
+
+  END-OF-LIFE / IMPACT EFFECTS - three separate prefab slots, all
+  resolved by asset NAME, all purely cosmetic (no damage). Stick to
+  names stock weapons already use, or the lookup finds nothing and the
+  field is skipped without a warning:
+      "impactBehaviour": { "destroyEffect": "ImpactParticle Ammo Popper" }
+            the HIT effect. 42 of the 80 stock projectile weapons set
+            it, and it is the biggest single reason a forged weapon can
+            feel flat - without it, shots just vanish. Good values:
+            ImpactParticle Ammo Popper / Fly / Flame / Toroid /
+            FlyZapper / Derbis / Worm / Cross / CrossAlpha, or the
+            beefier Explosion Ammo Marbles / Fireball / SoldierTech /
+            Rocket Soldier / Fish, EndParticle Ammo ElectronRocket,
+            DeathParticle Ammo Disc.
+      "rangeData": { "destroyEffect": "..." }
+            for running out of RANGE instead of hitting something.
+            Needs destroyWhenReached. Set both this and the impact one
+            if you want the shot to look right either way. Good values:
+            EndParticle Ammo FlyZapper / ElectronRocket / Toroid,
+            ImpactParticle Ammo Toroid, Explosion Ammo Fireball /
+            SoldierTech, DeathParticle Ammo Disc Disappear,
+            DeathParticle Weapon Worm.
+      "lifetimeData": { "spawnOnTimeDown": "..." }
+            for the lifetime TIMER running out. Independent of
+            spawnExplosion (that one deals the damage, this is the
+            look).
+      Also in impactBehaviour: "destroyVelocityThreshold" - LOBBED
+      shots only, does nothing on a normal projectile.
   "homingData": { "enabled": true,
                   "targetMode": "AutoSeekWhenShot",
                   "acceleration": 20, "torque": 200,
@@ -832,6 +1470,183 @@ PROJECTILE templates also accept:
     "wobbleFrequency": 3      how fast it wanders.
        ...or set "weapon": { "movementNoiseData": {...} } directly (below).
 
+  HOMING (bullets that curve onto enemies) - TOP-LEVEL "homing" block.
+
+  WHY THIS EXISTS. The game HAS homing - "homingData" - but it only works on
+  LOBBED / PHYSICS shots. ProjectileWeapon hands homingData to the projectile
+  ONLY inside its usePhysics branch, so a fast straight bullet like the
+  Popper's can never home with stock data no matter what you write. Stock
+  homing is also a RIGIDBODY model (torque, angular velocity, thrust) that a
+  plain bullet has no parts for.
+
+  So "homing" is homing for the PLAIN projectile. It steers by rotating the
+  shot's velocity, and there is a happy accident in how the game is built
+  that makes this the right way round: a plain projectile's collision sweep
+  is rebuilt FROM its velocity every frame -
+      Physics2D.CircleCast(position, Radius, Velocity, ...)
+  - so bending the velocity bends THE HITBOX TOO, automatically. There is no
+  second raycast to keep in sync, which is exactly what makes bending a
+  hitscan beam hard by comparison.
+
+      "homing": true            on, with defaults
+      "homing": {
+        "enabled": true,
+        "turnRate": 240,
+        "range": 20,
+        "cone": 45,
+        "delay": 0.15,
+        "maxTurn": 120,
+        "retarget": true,
+        "predict": false,
+        "faceTravel": true
+      }
+
+    turnRate    degrees per second the heading may swing. THE dial. What you
+                actually SEE is the turn RADIUS, which is
+                speed / turnRate (in radians) - so the same turnRate that
+                whips a slow shot around barely bends a fast one.
+                At projectileSpeed 30: turnRate 180 gives a ~9.5-unit turn
+                radius (a nice visible arc), 360 gives ~4.8 (a hard chase),
+                90 gives ~19 (almost straight). The mod LOGS the computed
+                radius for your actual numbers and warns when it is too wide
+                to see, so check the log if "homing does nothing".
+    range       how far the shot looks for something to chase. Only things it
+                could actually hit count, and never terrain.
+    cone        only acquire a target within this many degrees of where the
+                shot is already going, so bullets don't turn round and fly
+                backwards. Default 90. 180 = anything, including behind.
+                Narrow it (30-45) for shots that only lock onto roughly what
+                you aimed at, which keeps a stream sweeping smoothly instead
+                of snapping sideways.
+    delay       seconds of dead-straight flight before homing starts. Small
+                values read really well on a beam-like stream - it leaves the
+                muzzle straight and bends further out. Try 0.1-0.2.
+    maxTurn     total degrees this shot may EVER turn (0 = no limit). A
+                budget (say 90) stops a missed shot from circling forever and
+                coming back at you: it commits to one graceful curve, then
+                flies straight.
+    retarget    find a new target if the current one dies (default true).
+                With a high fire rate and enemies dying constantly this keeps
+                the stream latched onto whatever is still alive.
+    predict     aim where the target is GOING, using the game's own aim-assist
+                velocity. Better against movers; on a slow shot against a fast
+                mover it can overshoot and weave.
+    faceTravel  rotate the sprite to match the new heading each frame
+                (default true). Needed for art with a nose, and essential for
+                a segment stream to read as one continuous curve. Turn it off
+                for a round blob, or to let a rotationData spin survive.
+
+  Projectile weapons only, and NOT usePhysics - a lobbed shot has the game's
+  own homing instead, and the mod says so in the log with the homingData to
+  use. Like wave, homing turns movementNoiseData OFF, because the game's noise
+  branch recomputes the heading after ours and would undo every turn.
+
+  MAKING IT LOOK LIKE A BEAM. Spacing between shots is
+  projectileSpeed / fireRate, and the stream looks continuous when your sprite
+  is at least that long. The game runs at 20 PIXELS PER WORLD UNIT, so:
+      speed 30, fireRate 20  -> 1.5 units apart -> needs a ~30 px sprite
+      speed 24, fireRate 30  -> 0.8 units apart -> needs a ~16 px sprite
+  Shorter and you get a dotted line, which with the right art is its own good
+  look. Also worth setting: piercingData.enabled true so the stream doesn't
+  stop dead on the first enemy (a real beam doesn't), a small "cost" since you
+  are firing many times a second, and "repeatMinDelay" in your custom shoot
+  sound's .json so it doesn't machine-gun into noise.
+
+  RICOCHET (bullets that bounce off things) - TOP-LEVEL "ricochet" block.
+
+  WHAT IS THE GAME'S AND WHAT IS OURS. The bouncing itself is the game's
+  (projectileBounceData), and so is choosing which surfaces bounce. Usefully,
+  the damage call happens BEFORE the bounce, so a shot that ricochets off an
+  enemy HAS ALREADY HURT IT. Only two stock weapons use any of it
+  (CrossRedElectron Bouncer, SoldierTech - both terrain-only).
+
+  What the game has NO concept of is a bounce COUNT. Nothing anywhere tracks
+  reflections, so a stock bouncer bounces FOREVER until range or lifetime
+  kills it. The limit, the falloff, the scatter and the seeking are what this
+  block adds.
+
+      "ricochet": true          on, terrain-only, 3 bounces
+      "ricochet": {
+        "enabled": true,
+        "targets": "both",
+        "bounces": 5,
+        "seek": true,
+        "seekRange": 20,
+        "seekCone": 180,
+        "scatter": 8,
+        "speedMultiplier": 0.85,
+        "damageMultiplier": 0.8,
+        "pierceWins": false
+      }
+
+    targets     what it bounces off:
+                  "terrain" (default)  walls only - the classic bouncer
+                  "enemies"            skips between enemies like a stone
+                                       across water
+                  "both"               walls and enemies
+                  "none"               parks the feature without deleting
+                                       your settings
+                Under the hood this is the game's bounce layer mask, resolved
+                by layer NAME (terrain = "Ground", enemies = "Entities") so a
+                layer reshuffle cannot silently retarget it.
+    bounces     how many bounces before the shot is done. A NUMBER, or
+                "infinite" (also accepts "unlimited" / -1). Default 3.
+                CAREFUL WITH INFINITE - that is the stock behaviour, and with
+                no rangeData or lifetimeData the shots never die and pile up.
+                The mod warns in the log if you set infinite with no way to
+                expire. Give it "lifetimeData": { "enabled": true,
+                "time": 3 }.
+    seek        false (default) = an honest mirror bounce off the surface,
+                which goes wherever the geometry sends it - often nowhere.
+                true = each bounce is redirected at the nearest valid enemy,
+                which is what makes a ricochet reliably "hit something else".
+                Uses the same target-finding as "homing", so it agrees on what
+                counts as a target and never picks terrain or your own side.
+    seekRange   seek only: how far to look from the bounce point.
+    seekCone    seek only: how far off the TRUE reflected heading the redirect
+                may pull, in degrees. 180 (default) = anywhere, including
+                straight back. Lower it (60-90) to keep the bounce looking
+                physically plausible while still cheating.
+    scatter     degrees of random angle added to each bounce. Besides feeling
+                chaotic rather than geometric, this is the practical ESCAPE
+                FROM A SHOT TRAPPED BETWEEN TWO PARALLEL WALLS, which a
+                perfect mirror would ping between until it expires. Try 5-15.
+    speedMultiplier
+                fraction of speed kept per bounce. 1 = arcade (default, and
+                what the stock bouncers do). 0.8 makes a long chain visibly
+                wind down. Note a slowing shot also curves TIGHTER if you
+                have "homing" on, since turn radius scales with speed - which
+                happens to look right.
+    damageMultiplier
+                fraction of damage kept per bounce. 1 = no falloff (default).
+                A balance lever if an infinite bouncer in a tight corridor
+                turns out absurd: 0.7 makes the fourth hit worth about a third
+                of the first.
+    pierceWins  ONLY matters if piercingData is also on. The game checks
+                piercing BEFORE bouncing and returns early, so a pierced enemy
+                is never bounced off - the two cannot both apply to one hit.
+                Terrain is exempt from that early-out, so walls bounce either
+                way.
+                  false (default)  you asked for ricochet, so piercing is
+                                   switched OFF and the log says why.
+                  true             piercing is kept, shots pass through
+                                   enemies, and only terrain ricochets.
+
+  WHEN THE BOUNCES RUN OUT the shot runs the weapon's own impactBehaviour on
+  that final hit and is then destroyed - so if you set spawnExplosion or a
+  subEmitter, the last bounce goes off with a bang; with nothing set it simply
+  vanishes. Nothing to configure; it reuses the impact machinery you already
+  have.
+
+  Plain projectiles only. Lobbed / usePhysics shots have NO bounce code at all
+  in the game, so ricochet is refused on them with a log line.
+
+  Small honest caveat: the game also calls its Reflect() for the impact
+  "safety distance" bounce (a shot that hits something right at the muzzle is
+  bounced instead of exploding, so weapons do not blow up in your face). Those
+  consume a bounce too, which is why a point-blank shot can look like it lost
+  one early.
+
   "projectileBounceData": { "enabled": true }
   "movementNoiseData": { "enabled": true, "angle": 15,
                          "frequency": 6 }
@@ -849,8 +1664,19 @@ PROJECTILE templates also accept:
                        "showBeamParticles": true,
                        "damageRadius": 0.75,
                        "damageRepeatDelay": 0.1,
+                       "layerMask": "Entities",
+                       "limitedCharge": true, "maxCharge": 5,
                        "damage": { "amount": 3,
                                    "damageType": "Resource White" } }
+      "layerMask" - which layers the conductor may link into and damage.
+            Same trap as discharge.layerMask: a typo silently means
+            "conducts to nothing", with no warning anywhere.
+      "limitedCharge" + "maxCharge" - makes the shot's electricity a
+            finite battery instead of an endless source: it starts full
+            at maxCharge and drains as it conducts, so the arc
+            eventually dies. Six stock weapons use it (Electron Circuit
+            = maxCharge 5). Always set BOTH - limitedCharge on its own
+            with maxCharge 0 is a conductor that is dead on arrival.
 
 HITSCAN templates also accept:
 
@@ -872,8 +1698,105 @@ MINION SPAWNER templates also accept:
   "minionFacesShootDirection": true
 
 ----------------------------------------------------------------
+ 6a. NORMAL PROJECTILES (the plain bullet) - WHAT APPLIES
+----------------------------------------------------------------
+
+The default and most flexible type: a Projectile weapon with usePhysics
+OFF. The shot flies dead straight at a fixed speed, swept forward by a
+circle-cast every physics step. Stock reference points:
+
+  White Popper   fireRate 7,   damage 1, speed 100, radius 0.22, range 15
+  White Bolt     fireRate 0.7, damage 4, speed 200, radius 0.24, range 20,
+                 knockbackForce 270
+  White Shotgun  fireRate 1.3, damage 1 x projectileCount 10, spread 20,
+                 speed 100, range 9
+
+EVERYTHING in section 4 and 5 applies, plus every Forge extra (wave,
+orbit, phasing, pierce cap, turret, sub-emitters).
+
+*** SPREAD vs ANGLEVARIANCE - the one that catches everybody ***
+
+  "spread" is the total width of an evenly-spaced FAN, and it is
+  COMPLETELY IGNORED when projectileCount is 1. The stock Popper ships
+  spread 7 and the Bolt ships 10, and on both of them that number does
+  absolutely nothing - until a +projectile module lands, at which point
+  the weapon suddenly fans out.
+
+  "angleVariance" is a random wobble applied to each shot on its own.
+  THAT is the inaccuracy knob for a single-shot weapon.
+
+  Shotgun -> spread.  Rattly machine gun -> angleVariance.
+
+  The fan itself: with count > 1 the shots start at
+  (-spread / 2 + angleOffset) and step by spread / (count - 1), so the
+  first and last shot land exactly on the edges. One special case:
+  "spread": 360 steps by spread / count instead, which is what stops a
+  full circle from putting two shots at the same angle.
+
+  "projectileCount" is a FLOAT and the loop is "while i < count", so
+  2.5 fires THREE shots (and spaces them as if there were 2.5). Use
+  whole numbers unless you want that.
+
+DOES NOTHING on a normal projectile - do not waste time on these:
+
+  "homingData"                            missiles need usePhysics; a
+                                          straight shot has no homing
+                                          code at all (see 6c)
+  "physicsProjectilePrefab"               only read when usePhysics is on
+  "lifetimeData.timeVariance"             never read by ANY code path.
+                                          Looks like the randomiser
+                                          rangeData.variance is, but the
+                                          expiry check uses the raw
+                                          .time. Use rangeData instead.
+  "rotationData.orientationAlignment":
+      "Continuous"                        dead enum value - the game
+                                          tests only for "WhenShot", so
+                                          a curving shot will not keep
+                                          re-aiming. For a spinning shot
+                                          pick art that spins (Blades,
+                                          Disc).
+  "impactBehaviour.
+      destroyVelocityThreshold"           lobbed shots only
+  "cellConvertData"                       hitscan beams only (see 6d)
+  "maxRotationSpeedWhileShooting"         reads like an aim-speed clamp
+                                          while firing, and it IS real -
+                                          but only the enemy AI aimer
+                                          uses it. The player ship aims
+                                          through a different component
+                                          that never looks at it, so it
+                                          does nothing on anything you
+                                          can build. Not offered in the
+                                          builder for that reason.
+  "rayWidth" / "layerMask" / "visual"     hitscan fields
+  "minionPrefab" and friends              minion spawners only
+
+EASY TO MISS: a projectile's per-target damage cooldown is
+"piercingData.damageRepeatDelay". The top-level "damageRepeatDelay" is
+the HITSCAN beam's tick rate and exists only on that type - setting it
+on a projectile weapon is silently discarded.
+
+----------------------------------------------------------------
  6b. LOBBED WEAPONS (usePhysics) - WHAT APPLIES
 ----------------------------------------------------------------
+
+*** rangeData DOES NOTHING ON A LOB - the whole block ***
+
+  A lobbed shot is a PhysicsProjectile, a different class from a straight
+  shot, and it ignores rangeData completely. It reads the values and
+  computes a time-to-range on launch, then never looks at that number
+  again - so "range", "variance", "slowDown", "destroyWhenReached",
+  "spawnExplosion" and "fireSub" are ALL inert here. (A straight shot uses
+  the same number for its slow-down and its range-expiry; the physics one
+  simply has no equivalent code.)
+
+  So a lobbed shot only ever ends two ways, and only these fire a sub:
+     lifetimeData.fireSub       when its timer runs out
+     impactBehaviour.fireSub    when it hits something
+  Want it to burst after N seconds in the air? That is
+     "lifetimeData": { "enabled": true, "time": 2, "fireSub": true }
+  not rangeData.
+  Impact still respects impactBehaviour.safetyDistance: a shot that hits
+  something closer than that does not fire its sub.
 
 Set "usePhysics": true (inside "weapon") and the weapon throws a physics
 object that arcs, tumbles and bounces off the world.
@@ -982,6 +1905,90 @@ and damages whatever it touches, so most projectile options do nothing.
                          "phasing" option simply strips Ground from this.)
   "visual": "..."        the beam's look - swap in another laser's visual
                          prefab by name.
+
+  CUSTOM BEAM ART ("beam" block) - your own sprites on the beam.
+
+  HOW A BEAM IS DRAWN, because it decides what is possible. A beam is ONE
+  SINGLE STRETCHED QUAD. Every frame the game puts a SpriteRenderer at the
+  barrel, rotates it toward wherever the ray landed, and sets its WIDTH to
+  the whole distance. One sprite, one rectangle, muzzle to target.
+
+  Two consequences:
+    * A beam CANNOT BEND as it stands - there is nowhere for a curve to
+      live inside a single quad. A bending beam has to be a CHAIN of short
+      quads, which is a separate feature built on top of this one. This
+      block is the foundation it needs: loading and placing beam art.
+    * A beam CANNOT ANIMATE by flipbook. Use "tiling": "repeat" for the
+      illusion of movement instead.
+
+  THE PIVOT TRAP, HANDLED FOR YOU. Every stock beam sprite has its pivot
+  on the LEFT EDGE, because the quad grows rightward from the muzzle. The
+  Sprite Sheet Builder writes a CENTRED pivot - right for a bullet, wrong
+  for a beam, and it would hang half the beam out behind your ship. The
+  mod rebuilds your sprite with a left pivot automatically, so ONE sprite
+  works as both a bullet and a beam and you never touch the manifest.
+
+  Draw beam art pointing RIGHT, as a horizontal strip.
+
+      "beam": {
+        "sprite": "myBeam",
+        "tiling": "repeat",
+        "thickness": 0.8,
+        "warmupSprite": "myCharge",
+        "warmupThickness": 0.4,
+        "impactSprite": "mySparkAnim",
+        "impactFps": 0,
+        "glow": false,
+        "material": "SpriteUnlitAA",
+        "offset": 0.2
+      }
+
+  Shorthand: "beam": "myBeam" just re-skins the firing beam.
+
+    sprite      the firing beam. A name from your "sprites" folder or any
+                sprite in the game (custom searched first). The stock ones
+                are Sprite_Lazer_6_0 .. _6_0_3 - all tiny 8x8 px, because
+                they get stretched. An animation only uses frame 1 (logged).
+    tiling      "stretch" = what every stock beam does, one sprite pulled
+                from muzzle to target, so an 8px sprite becomes a smooth
+                gradient.
+                "repeat" = tiles the sprite along the beam at its true
+                size, so a SEGMENT of art repeats over and over. This is
+                the one for a beam made of visible chunks, links or
+                chevrons, and it is what makes a beam read as flowing
+                rather than static. Needs art that tiles seamlessly
+                left-to-right.
+                ("simple" is refused: that draw mode ignores the
+                renderer's size, and size is the only thing making the
+                beam reach its target, so you would get a stub at the
+                muzzle.)
+    thickness   visual thickness in world units. Stock beams are 0.4; the
+                Crawler's is 1.5. This is VISUAL ONLY - "rayWidth" is the
+                separate HIT thickness, and the two want to stay roughly
+                in step or the beam looks like it misses.
+                projectileScale also scales this if you would rather
+                multiply than set.
+    warmupSprite / warmupThickness
+                the thin beam shown while CHARGING, before the shot fires
+                - only visible with a "warmupTime". Separate renderer and
+                sprite; the stock ones are all tiled, thickness 0.4.
+    impactSprite / impactFps
+                the spark where the beam lands. This one IS a particle
+                system, so unlike the beam itself it CAN animate - name an
+                "...Anim" and every spark plays the whole flipbook. Blank
+                impactFps spreads the sequence over each spark's lifetime.
+    glow        EVERY stock beam uses the emissive shader
+                (EmissiveUnlitSprite), which suits a glowing energy bar but
+                blows detailed art out toward white. If your custom beam
+                looks washed out, set false - same fix as projectileGlow
+                for bullets.
+    material    escape hatch. The three in play are EmissiveUnlitSprite
+                (stock), EmissiveUnlitSpriteBright (the Crawler's) and
+                SpriteUnlitAA (as painted). Overrides glow.
+    offset      extra length past the hit point, and how far the spark
+                sits beyond it. Stock 0.2 on all four beam prefabs. Raise
+                it if your art has a soft or capped end; drop toward 0 for
+                a beam that stops exactly on the target.
 
   TERRAFORMING BEAM (cellConvertData) - a hidden feature. The beam
   CONVERTS TERRAIN where it lands. Only one weapon in the game uses it:
