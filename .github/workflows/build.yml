@@ -1,0 +1,114 @@
+name: Build WeaponForge
+
+# Builds WeaponForge.dll on every push and uploads it as a run artifact, so the latest build can
+# be pulled without a local toolchain.
+#
+# WHY THIS IS NOT A ONE-LINER. WeaponForge.csproj references the game's Managed assemblies and the
+# BepInEx core by HintPath into a sibling folder that only exists on the author's machine:
+#
+#   <HintPath>..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\Punk.Main.dll</HintPath>
+#
+# Those DLLs are proprietary and cannot live in a public repo. So this workflow recreates that
+# exact folder next to the checkout and fills it from a private release asset. The csproj is left
+# COMPLETELY UNTOUCHED - which matters for a fork that intends to send pull requests upstream: the
+# diff stays "one new directory", with nothing a maintainer has to review or merge around.
+#
+# SETUP (once per fork):
+#   1. A private repo holding the reference DLLs, with a release tagged `refs` carrying
+#      `weaponforge-refs.zip` - a FLAT zip of the 22 DLLs the csproj names.
+#   2. A fine-grained PAT with read access to that repo, added here as the REFS_TOKEN secret:
+#        gh secret set REFS_TOKEN --repo <owner>/WeaponForge
+#      Without it the build fails immediately with a message saying so, rather than emitting 200
+#      confusing "type or namespace not found" errors.
+#
+# Windows runner on purpose: this is an old-style (non-SDK) csproj targeting .NET Framework 4.7.2,
+# which wants real MSBuild and the framework reference assemblies. `dotnet build` on Linux does not
+# have them.
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - '**.txt'
+      - '**.html'
+      - '.gitignore'
+      - '.gitattributes'
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Fetch reference assemblies
+        env:
+          GH_TOKEN: ${{ secrets.REFS_TOKEN }}
+          REFS_REPO: ${{ vars.REFS_REPO || 'Osanchez/PunkMods-refs' }}
+        shell: pwsh
+        run: |
+          if (-not $env:GH_TOKEN) {
+            throw "REFS_TOKEN secret is not set. Create a fine-grained PAT with read access to $env:REFS_REPO and add it: gh secret set REFS_TOKEN --repo <owner>/WeaponForge"
+          }
+
+          # The csproj's HintPaths are ..\..\WhiteTeslaMod\WhiteTeslaMod\bin\Debug\ RELATIVE TO
+          # WeaponForge\WeaponForge.csproj -- so the target is one level ABOVE the checkout.
+          $refDir = Join-Path (Split-Path -Parent $env:GITHUB_WORKSPACE) "WhiteTeslaMod\WhiteTeslaMod\bin\Debug"
+          New-Item -ItemType Directory -Force -Path $refDir | Out-Null
+
+          gh release download refs --repo $env:REFS_REPO --pattern weaponforge-refs.zip --dir . --clobber
+          Expand-Archive -Path weaponforge-refs.zip -DestinationPath $refDir -Force
+          Remove-Item weaponforge-refs.zip -Force
+
+          $have = @(Get-ChildItem $refDir -Filter *.dll)
+          Write-Host "reference assemblies: $($have.Count) in $refDir"
+
+          # Fail here, naming what is missing, rather than in the compiler. A missing reference
+          # surfaces as a wall of unrelated "type or namespace" errors that says nothing about
+          # the actual cause.
+          $need = @(Select-String -Path "WeaponForge\WeaponForge.csproj" -Pattern '<HintPath>.*\\([^\\]+\.dll)</HintPath>' -AllMatches |
+                    ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+          $missing = @($need | Where-Object { -not (Test-Path (Join-Path $refDir $_)) })
+          if ($missing.Count -gt 0) {
+            Write-Host "::error::weaponforge-refs.zip is missing $($missing.Count) assembly(ies) the csproj references:"
+            $missing | ForEach-Object { Write-Host "::error::  $_" }
+            throw "reference bundle is incomplete - refresh weaponforge-refs.zip from a game install"
+          }
+
+      - name: Restore
+        shell: pwsh
+        run: nuget restore WeaponForge.sln
+
+      - name: Build (Release)
+        shell: pwsh
+        run: msbuild WeaponForge.sln /p:Configuration=Release /p:Platform="Any CPU" /verbosity:minimal /nologo
+
+      - name: Report what was built
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem -Recurse -Filter WeaponForge.dll -Path WeaponForge\bin\Release |
+                 Select-Object -First 1
+          if (-not $dll) { throw "build succeeded but produced no WeaponForge.dll" }
+          $sha = (Get-FileHash -Algorithm SHA256 $dll.FullName).Hash.ToLower()
+          Write-Host "WeaponForge.dll  $($dll.Length) bytes"
+          Write-Host "sha256           $sha"
+          # Into the job summary so the hash is readable without downloading anything -- that is
+          # how you tell whether a build actually changed the output.
+          "### WeaponForge.dll`n`n| | |`n|---|---|`n| size | $($dll.Length) bytes |`n| sha256 | ``$sha`` |`n| commit | ``$env:GITHUB_SHA`` |" |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WeaponForge-${{ github.sha }}
+          path: WeaponForge/bin/Release/WeaponForge.dll
+          if-no-files-found: error
+          retention-days: 90
