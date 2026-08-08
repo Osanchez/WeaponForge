@@ -124,6 +124,9 @@
           <option value="TripleRing">Triple Ring (3 counter-rotating rings)</option>
           <option value="WaveBeam">Wave Beam (S-pattern projectiles)</option>
           <option value="SpiralVortex">Spiral Vortex (spiral out, fly off)</option>
+          <option value="Boomerang">Boomerang (throw &amp; return disc)</option>
+          <option value="Snowball">Snowball (grows as it flies)</option>
+          <option value="Deflector">Deflector (returns enemy fire)</option>
           <option value="CyanPopper">Cyan Popper (basic example)</option>
         </select>
         <em>fills the whole form with a ready-made weapon so you can tweak
@@ -260,7 +263,112 @@
         <span>loot weight (optional)</span>
         <input type="number" step="any" data-path="lootWeight"
                placeholder="10">
-        <em>drop chance vs other crate modules (default 10)</em></label>
+        <em>How likely your weapon is <b>relative to everything else in the same
+            pool</b>. Default <b>10</b>, which is what most stock modules sit at.
+            It is a plain weight, not a percentage: your odds are
+            <code>yourWeight ÷ (poolTotal + yourWeight)</code>.
+            <br><br><b>Pool sizes differ enormously</b>, so the same weight
+            behaves very differently depending on <code>lootFrom</code>. Total
+            weight already in each pool, and what a default 10 gets you:
+            <br>&bull; <b>tech</b> &mdash; total 50 &rarr; about <b>17%</b>
+            <br>&bull; <b>purple</b> &mdash; total 161 &rarr; about 6%
+            <br>&bull; <b>white</b> &mdash; total 196 &rarr; about 5%
+            <br>&bull; <b>caps</b> &mdash; total 201 &rarr; about 5%
+            <br>&bull; <b>queen</b> &mdash; total 221 &rarr; about 4%, but she drops
+            3 at once
+            <br>So a weapon at weight 10 is <b>three times</b> more likely to
+            show up from Tech crates than from any other. To be roughly as
+            common in White as in Tech, you would need about weight 40.
+            <br><br>Those are odds on a <i>fresh</i> run: the game shrinks a
+            module's weight as you collect copies of it (see
+            <code>lootRepeat</code>), so pools thin out as a run goes
+            on.</em></label>
+      <label class="field"><span>lootFrom &mdash; WHICH crates <span class="tag">optional</span></span>
+        <select class="preset" data-preset-for="lootFrom">
+          <option value="">-- all crates (default) --</option>
+          <option value="white">white &mdash; the plain Crate</option>
+          <option value="caps">caps &mdash; Crate Caps (orange)</option>
+          <option value="purple">purple &mdash; Crate Purple</option>
+          <option value="tech">tech &mdash; Crate Tech</option>
+          <option value="queen">queen &mdash; the Queen's own pool</option>
+          <option value="level2">level2 &mdash; Crate Level 2 (adds a roll)</option>
+          <option value="money">money &mdash; Crate Money (adds a roll)</option>
+        </select>
+        <em>fills the field below. For more than one, hand-edit the saved JSON
+            into a list: <code>"lootFrom": ["white", "caps"]</code>.</em></label>
+      <label class="field"><span>lootFrom</span>
+        <input type="text" data-path="lootFrom" placeholder="white">
+        <em><b>Restrict the weapon to specific crates.</b> Leave blank (or use
+            <code>all</code>) and it drops from every pool, which is what
+            <code>loot</code> has always meant.
+            <br><br>Each crate rolls exactly <b>one</b> module from its own
+            pool, and the game already splits those pools by element &mdash; which
+            is what makes this possible. <b>The five that actually work:</b>
+            <br>&bull; <code>white</code> &mdash; the plain <b>Crate</b>. Biggest
+            pool (18 entries: all 8 White weapons, boosters, augments). Also
+            used by the <b>CrossJock</b> and <b>CrossRed Bomber</b> enemies.
+            <br>&bull; <code>caps</code> &mdash; <b>Crate Caps</b>. 11 entries
+            (Loon, Laser, Flame, Rocket, Igniter, burn augments&hellip;).
+            <br>&bull; <code>purple</code> &mdash; <b>Crate Purple</b>. 11 entries
+            (Shard, Rocket, Marbles, ClusterCube, AirMines&hellip;).
+            <br>&bull; <code>tech</code> &mdash; <b>Crate Tech</b>. Smallest pool, only
+            5 entries, so <b>your weapon has the best odds here</b>. Also used
+            by the <b>Crawler</b> enemy.
+            <br>&bull; <code>queen</code> &mdash; a generic pool used only by the
+            <b>Queen</b>, who drops <b>3</b> modules at once.
+            <br><br><b>Two more that the mod ADDS a module roll to:</b> neither
+            drops a module in the base game, so naming one makes the mod append
+            a new drop entry to that crate. It is <b>purely additive</b> &mdash; the
+            crate keeps every one of its normal contents and gains a module on
+            top &mdash; and it only happens if a weapon <i>explicitly</i> names the
+            crate, so <code>lootFrom</code> left blank never alters anything.
+            <br>&bull; <code>level2</code> &mdash; <b>Crate Level 2</b>. It already
+            has a 5-module pool wired up that the game never rolls, so this
+            revives it: your weapon competes with those 5 stock
+            regen/generator modules (about <b>38%</b> at weight 10, since that
+            pool totals only 16). Arguably fixes a bug in the game's data.
+            <br>&bull; <code>money</code> &mdash; <b>Crate Money</b>. This one has no
+            module pool anywhere, so the mod creates one. Only <i>your</i>
+            money-targeting weapons are in it, which means one of them
+            <b>always</b> drops from a money crate. Strong &mdash; use
+            <code>lootWeight</code> to balance between several, or pick a
+            different crate if that's too generous.
+            <br><br><b>Not available, and why:</b> the remaining crates roll no
+            module <i>pool</i> and have nothing sensible to graft.
+            <br>&bull; <b>Crate Green</b> is the <b>bonus / upgrade crate</b>.
+            It doesn't roll a pool &mdash; it always hands you exactly one
+            <code>Module BoosterCore</code> (plus fuel and red resource). Those
+            are the green modules that carry a little <b>grid pattern</b>: park
+            one next to your upgrade modules and everything inside its pattern
+            gains <b>+1 level</b>, which is a real stat increase. Overlap two
+            patterns on the same module and the bonuses <b>stack</b>. Each
+            BoosterCore randomly draws one of <b>three</b> shapes, it has to be
+            powered and connected to do anything, and it only lifts modules
+            flagged <code>canBeBoosted</code> (boosters deliberately can't boost
+            each other). Weapons and gadgets benefit too &mdash; a levelled drone
+            gadget raises its drone cap, for instance.
+            <br>&bull; The 6 <code>Box</code> pickups drop one fixed item each.
+            <br>Naming one of these is refused with an explanation rather than
+            silently never dropping.
+            <br><br>Aliases accepted: <code>stamina</code>=white,
+            <code>orange</code>=caps, <code>generic</code>=queen. The full asset
+            name works too.</em></label>
+      <label class="field"><span>lootRepeat &mdash; allow duplicates</span>
+        <input type="text" data-path="lootRepeat" placeholder="false">
+        <em><b>By default a weapon you already own stops dropping.</b> That is
+            the game's own rule, not ours: each module carries a
+            <code>repeatedDropChanceMultiplyer</code> that multiplies its drop
+            weight <i>once per copy you already have</i>, and <b>120 of ~145
+            stock modules set it to 0</b> &mdash; so one copy takes it to zero
+            weight for the rest of the run.
+            <br><br>Set <code>true</code> to switch that off entirely and let it
+            keep dropping at full chance. Or give a number for a middle ground:
+            <code>0.5</code> makes each copy you own halve the odds of the next,
+            so duplicates get rarer without ever becoming impossible.
+            <code>false</code> (or blank) keeps the stock once-per-run
+            behaviour.
+            <br><br>This is set on a private clone of the module, so it can
+            never make a stock weapon start repeating.</em></label>
       <label class="field"><span>buy from shop</span>
         <select id="f-shop" data-path="shop" data-type="bool">
           <option value="">no</option>
@@ -683,6 +791,24 @@
               builder just has no UI for it. <b>Never</b> leave the list empty
               while radius &gt; 0 or a spawnExplosion flag is on: the game
               reads entry 1 unconditionally and throws.</em></label>
+        <label class="field"><span>every damage entry NEEDS a damageType <span class="tag">crash</span></span>
+          <em><b>An explosion damage with no <code>damageType</code> crashes the
+              game's explosion spawner</b>, and the symptom is so strange it is
+              worth knowing on sight. <code>ExplosionManager</code> does
+              <code>damages[0].damageType.explosionBasePrefab</code> with no null
+              check &mdash; the element is what <i>picks the explosion's whole
+              visual</i>, so it is not optional. A missing one throws a
+              NullReferenceException <b>before</b> the damage logic and before
+              the projectile destroys itself, so you get: <b>no blast at all</b>,
+              and a shot that never dies and therefore sits inside the enemy
+              hitting it over and over doing enormous damage.
+              <br>If you write <code>"damages": [{ "amount": 4 }]</code> the mod
+              now fills the type in from the weapon's own damage and warns in the
+              log, so it will not crash &mdash; but set it explicitly if you want a
+              particular element. And note that
+              <code>explosionColor</code> can do nothing if no explosion
+              spawned, so a missing damageType looks like "explosionColor is
+              broken" too.</em></label>
       </div>
     </details>
 
@@ -1857,6 +1983,327 @@
     </details>
 
     <details class="block">
+      <summary><input type="checkbox" class="gate">deflect
+        <span class="tag">shoots down / reflects enemy fire</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>a defensive weapon <span class="tag">read me</span></span>
+          <em>The shot clears enemy bullets out of the air as it travels &mdash;
+              destroying them, or <b>turning them around and sending them
+              back</b>. This is the first weapon in the mod that
+              <i>protects</i> you rather than hurting something, and a slow
+              disc swept across incoming fire plays completely differently from
+              anything else here.
+              <br><br><b>The non-obvious bit</b>, in case you ever wonder why a
+              hand-rolled version wouldn't work: PUNK projectiles resolve their
+              own collisions with a raycast, so their colliders are
+              <b>disabled</b>. Enemy bullets are invisible to a normal physics
+              overlap &mdash; a query finds nothing no matter how big the radius.
+              The mod keeps its own register of live enemy shots instead, and
+              only switches that on when a weapon actually needs it.
+              <br><br>Pairs naturally with a slow, long-lived, low-damage shot.
+              Plain projectiles only; lobbed shots are refused.</em></label>
+        <label class="field"><span>enabled</span>
+          <select data-path="deflect.enabled" data-type="bool">
+            <option value="">&mdash; (on if any field below is set)</option>
+            <option value="true">true - clear enemy fire</option>
+            <option value="false">false - off, keeping the settings below</option>
+          </select>
+          <em>defaults: destroys enemy fire within 2 units, no limit.</em></label>
+        <label class="field"><span>mode</span>
+          <select data-path="deflect.mode">
+            <option value="">destroy (default)</option>
+            <option value="destroy">destroy - incoming fire just vanishes</option>
+            <option value="reflect">reflect - send it back as YOUR bullet</option>
+          </select>
+          <em><b>destroy</b> is a clean bullet-eater: reliable, readable, good
+              for carving a safe lane through a bullet wall.
+              <br><b>reflect</b> re-factions the bullet so it belongs to you &mdash;
+              it will damage enemies, will not hit you, and kills with it are
+              credited to you. Far more satisfying, and it scales with how much
+              the enemy is shooting rather than with your own
+              damage.</em></label>
+        <label class="field"><span>radius</span>
+          <input type="number" step="any" data-path="deflect.radius"
+                 placeholder="2">
+          <em>how far from the shot incoming fire is caught, in world units.
+              <b>2</b> is a comfortable bubble. Large values (5+) turn a single
+              shot into a moving safe zone, which is powerful &mdash; consider
+              pairing it with a slow fire rate or a
+              <code>maxTotal</code>.</em></label>
+        <label class="field"><span>aim</span>
+          <select data-path="deflect.aim">
+            <option value="">back (default)</option>
+            <option value="back">back - straight back the way it came</option>
+            <option value="nearest">nearest - at the nearest enemy</option>
+          </select>
+          <em>reflect only. <b>back</b> is honest physics and often sends it at
+              whoever fired it. <b>nearest</b> re-aims at the closest valid
+              target instead, which connects far more often &mdash; it uses the same
+              target-finder as <code>homing</code>, so it never picks terrain
+              or your own side.</em></label>
+        <label class="field"><span>maxTotal</span>
+          <input type="number" step="1" data-path="deflect.maxTotal"
+                 placeholder="0">
+          <em>how many enemy shots one projectile may deal with over its whole
+              life. <b>0</b> = unlimited. A small number (2-3) makes each
+              deflector shot a precious, aimed thing rather than a blanket
+              shield.</em></label>
+        <label class="field"><span>damage</span>
+          <input type="number" step="any" data-path="deflect.damage"
+                 placeholder="1">
+          <em>reflect only: multiplier on the returned bullet's damage. 1 sends
+              it back exactly as hard as it arrived; 2 punishes them for
+              shooting at you.</em></label>
+        <label class="field"><span>speed</span>
+          <input type="number" step="any" data-path="deflect.speed"
+                 placeholder="1">
+          <em>reflect only: multiplier on the returned bullet's speed. Above 1
+              helps it actually reach the enemy before they move.</em></label>
+        <label class="field"><span>interval / aimRange</span>
+          <em>Fine tuning. <code>interval</code> (default 0.05s) is how often
+              the shot sweeps for bullets &mdash; it is a distance test over every
+              live enemy shot, and 20&times;/sec is indistinguishable from every
+              frame while costing a fraction as much. <code>aimRange</code>
+              (25) is how far a reflected bullet looks for a target when
+              <code>aim</code> is nearest.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">grow
+        <span class="tag">shot changes size as it flies</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>how this works <span class="tag">read me</span></span>
+          <em>A pinprick that arrives as a wrecking ball &mdash; or a fat slug that
+              tapers away to nothing.
+              <br><br><b>The hitbox grows with the art, automatically.</b> The
+              game rebuilds a projectile's collision circle from its
+              <code>Radius</code> every single frame, and that value is
+              writable, so the thing you <i>see</i> and the thing that
+              <i>hits</i> are driven by the same number. Nothing to keep in
+              sync, and no way for them to drift apart.
+              <br><br>Sizes are <b>multipliers of the shot's normal size</b>, so
+              1 means unchanged and this composes with
+              <code>projectileScale</code> and <code>projectileRadius</code>
+              rather than fighting them. Set <b>from</b> larger than <b>to</b>
+              and it shrinks instead.
+              <br><br>One thing that deliberately does <i>not</i> scale: a
+              <code>trail</code>. The game's particle trails are set to ignore
+              their parent's scale, so the puffs stay their own size while the
+              shot balloons. Usually looks right &mdash; set the trail's own
+              <code>size</code> if you want it to match.
+              <br><br>Plain projectiles only; lobbed shots are refused.</em></label>
+        <label class="field"><span>enabled</span>
+          <select data-path="grow.enabled" data-type="bool">
+            <option value="">&mdash; (on if any field below is set)</option>
+            <option value="true">true - change size in flight</option>
+            <option value="false">false - off, keeping the settings below</option>
+          </select>
+          <em>defaults: from 0.4 to 3 over the weapon's range.</em></label>
+        <label class="field"><span>from</span>
+          <input type="number" step="any" data-path="grow.from"
+                 placeholder="0.4">
+          <em>size the moment it leaves the barrel, as a multiplier of normal.
+              <b>0.4</b> is a noticeably small bullet; 0.1 is nearly invisible,
+              which sells the "it came out of nowhere" feel but can be hard to
+              aim with.</em></label>
+        <label class="field"><span>to</span>
+          <input type="number" step="any" data-path="grow.to"
+                 placeholder="3">
+          <em>size at full growth. <b>3</b> is a dramatic but still readable
+              wrecking ball. Remember the hitbox comes with it, so a big
+              number is a real accuracy buff, not just a look.
+              <br>Set this <i>lower</i> than <code>from</code> for a shot that
+              shrinks away as it travels &mdash; a decent way to give a powerful
+              weapon a natural falloff.</em></label>
+        <label class="field"><span>over</span>
+          <select data-path="grow.over">
+            <option value="">distance (default)</option>
+            <option value="distance">distance - grows with how far it has flown</option>
+            <option value="time">time - grows with how long it has been alive</option>
+          </select>
+          <em><b>distance</b> is what "grows as it flies" normally means, and it
+              looks consistent regardless of projectile speed.
+              <b>time</b> instead makes a slow shot grow over a short distance
+              and a fast one over a long distance &mdash; useful if you want the
+              growth tied to a fuse rather than a journey.</em></label>
+        <label class="field"><span>span</span>
+          <input type="number" step="any" data-path="grow.span"
+                 placeholder="(the weapon's range)">
+          <em>how far (world units) or how long (seconds) until it reaches full
+              size. <b>Leave blank</b> and it borrows the weapon's own
+              <code>rangeData.range</code> &mdash; or <code>lifetimeData.time</code>
+              in time mode &mdash; so the shot peaks exactly as it expires, which
+              is almost always what you want. With neither set it falls back to
+              10 units / 2 seconds, and the log says which it
+              used.</em></label>
+        <label class="field"><span>damageAtFull</span>
+          <input type="number" step="any" data-path="grow.damageAtFull"
+                 placeholder="1">
+          <em>damage multiplier once it is fully grown, ramping smoothly along
+              the way. <b>1</b> (default) keeps damage constant, so only the
+              size changes. 2 makes a fully-grown hit twice as hard, which
+              rewards letting the shot travel &mdash; the natural partner to a
+              growing bullet.</em></label>
+        <label class="field"><span>curve</span>
+          <input type="number" step="any" data-path="grow.curve"
+                 placeholder="1">
+          <em>shape of the ramp. <b>1</b> = steady growth. <b>Above 1</b> (try
+              2-3) keeps it small most of the way then swells at the last
+              moment, which reads as a charge-up. <b>Below 1</b> (try 0.5)
+              swells fast then eases, so it is big for most of its
+              flight.</em></label>
+        <label class="field"><span>hitbox</span>
+          <select data-path="grow.hitbox" data-type="bool">
+            <option value="">true (default)</option>
+            <option value="true">true - the hitbox grows too</option>
+            <option value="false">false - visual only</option>
+          </select>
+          <em>off makes it purely cosmetic, so a huge-looking shot still hits
+              like a normal one. Occasionally what you want for a flashy but
+              balanced weapon.</em></label>
+        <label class="field"><span>clamp</span>
+          <select data-path="grow.clamp" data-type="bool">
+            <option value="">true (default)</option>
+            <option value="true">true - stop at "to"</option>
+            <option value="false">false - keep growing past it</option>
+          </select>
+          <em>false lets it carry on past <code>to</code> for as long as the
+              shot lives, so a piercing round with a long lifetime just keeps
+              swelling. Fun, and a good way to make something feel like it is
+              getting out of hand.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
+      <summary><input type="checkbox" class="gate">boomerang
+        <span class="tag">flies out, turns, comes back</span></summary>
+      <div class="fields grid">
+        <label class="field"><span>the DiscGun is already half of one <span class="tag">read me</span></span>
+          <em>Worth knowing before you tune anything: <b>the game does the
+              outbound half for you.</b> A weapon whose
+              <code>rangeData</code> has <code>slowDown</code> on
+              <i>decelerates</i> as it approaches its range &mdash; and
+              <b>Module Weapon White DiscGun ships exactly that</b>, range 8
+              with slowDown on. By the time the disc reaches the far end its
+              speed is already <b>zero</b>.
+              <br><br>That zero is a free, natural pivot: no snap turn, nothing
+              to tune. So this block only supplies the trip home, and the
+              DiscGun is the obvious base &mdash; it already flies out, slows,
+              stops, and it spins.
+              <br><br>Turning it on will <b>enable rangeData if you haven't</b>
+              (there'd be nothing to turn at otherwise), force
+              <code>slowDown</code> on, and switch off
+              <code>destroyWhenReached</code> &mdash; which would otherwise kill the
+              shot at the exact moment it should be turning round. All three
+              are logged.
+              <br><br>Plain projectiles only; lobbed shots are refused.</em></label>
+        <label class="field"><span>enabled</span>
+          <select data-path="boomerang.enabled" data-type="bool">
+            <option value="">&mdash; (on if any field below is set)</option>
+            <option value="true">true - throw and return</option>
+            <option value="false">false - off, keeping the settings below</option>
+          </select>
+          <em>the throw distance comes from <code>rangeData.range</code>, so set
+              that too if you want control over how far it goes (the block is
+              in the projectile section).</em></label>
+        <label class="field"><span>returnPath</span>
+          <select data-path="boomerang.returnPath">
+            <option value="">home (default)</option>
+            <option value="home">home - curve back to wherever you are now</option>
+            <option value="retrace">retrace - fly back along the path it came out on</option>
+          </select>
+          <em><b>home</b> curves toward your ship's <i>current</i> position, so
+              it always reaches you even if you've moved. The forgiving option.
+              <br><b>retrace</b> follows the actual outbound path back, using
+              breadcrumbs dropped 20&times; a second &mdash; so if the throw curved
+              (a wave or homing shot), the return curves too. Faithful and
+              great for hitting the same row of enemies twice, but if you've
+              moved it comes back to where you <i>were</i> and then expires
+              there.</em></label>
+        <label class="field"><span>returnOn</span>
+          <select data-path="boomerang.returnOn">
+            <option value="">range (default)</option>
+            <option value="range">range - turn at the far end of the throw</option>
+            <option value="hit">hit - also turn early off walls</option>
+          </select>
+          <em><b>range</b> turns only where the throw runs out of momentum.
+              <br><b>hit</b> also turns it around the moment it strikes
+              <b>terrain</b>, which makes it feel reactive and pinball-ish in
+              tight spaces. Enemies never turn it either way &mdash; it pierces
+              them.</em></label>
+        <label class="field"><span>returnSpeed</span>
+          <input type="number" step="any" data-path="boomerang.returnSpeed"
+                 placeholder="1">
+          <em>multiplier on the launch speed for the trip home. <b>1</b> = comes
+              back as fast as it went out. Above 1 snaps back at you, which
+              reads well since the outbound leg ends slow; below 1 gives a long
+              lazy float home.</em></label>
+        <label class="field"><span>returnDamage</span>
+          <input type="number" step="any" data-path="boomerang.returnDamage"
+                 placeholder="1">
+          <em>damage multiplier applied once, when the return leg starts. 1.5
+              rewards you for letting the arc complete rather than firing into
+              a wall. Reuses the same idea as ricochet's damage ramp.</em></label>
+        <label class="field"><span>onCatch</span>
+          <select data-path="boomerang.onCatch">
+            <option value="">vanish (default)</option>
+            <option value="vanish">vanish - disappears once it's back</option>
+            <option value="refund">refund - gives part of the firing cost back</option>
+            <option value="loop">loop - throws itself out again</option>
+          </select>
+          <em>what happens when it reaches you.
+              <br><b>refund</b> pays back a share of the weapon's
+              <code>cost</code> into the tank it was fired from, so a
+              well-aimed throw is cheap and firing into empty space is not.
+              Needs the weapon to actually have a cost; you get a warning if
+              not.
+              <br><b>loop</b> sends it straight back out for another lap.</em></label>
+        <label class="field"><span>refund</span>
+          <input type="number" step="any" data-path="boomerang.refund"
+                 placeholder="0.5">
+          <em>refund only: the fraction of the firing cost you get back.
+              0.5 = half.</em></label>
+        <label class="field"><span>passes</span>
+          <input type="number" step="1" data-path="boomerang.passes"
+                 placeholder="2">
+          <em>loop only: total out-and-back trips before it gives up. Careful
+              at any real fire rate &mdash; these stack up on screen
+              fast.</em></label>
+        <label class="field"><span>pierce</span>
+          <select data-path="boomerang.pierce" data-type="bool">
+            <option value="">true (default)</option>
+            <option value="true">true - passes through enemies</option>
+            <option value="false">false - stops on the first one</option>
+          </select>
+          <em><b>On by default, and it matters more than it sounds.</b> The
+              DiscGun has piercing OFF, so out of the box it stops dead on the
+              first thing it touches &mdash; and a boomerang that never gets past
+              an enemy never comes back at all. Leaving this true switches
+              piercing on for you.</em></label>
+        <label class="field"><span>rehit</span>
+          <select data-path="boomerang.rehit" data-type="bool">
+            <option value="">true (default)</option>
+            <option value="true">true - can hit the same enemy again coming back</option>
+            <option value="false">false - one hit per enemy per throw</option>
+          </select>
+          <em>the satisfying part of a boomerang: a lined-up throw hits
+              everything twice. Under the hood this is the per-target damage
+              cooldown, set to 0.3s &mdash; long enough that passing <i>through</i>
+              an enemy still only counts once, short enough that the return leg
+              lands.</em></label>
+        <label class="field"><span>turnRate / catchRadius / maxLife</span>
+          <em>Fine tuning, all optional. <code>turnRate</code> (default 540
+              deg/sec) is how sharply it curves home &mdash; a lower value makes a
+              wide lazy arc, but too low and it circles you instead of being
+              caught. <code>catchRadius</code> (1.2) is how close counts as
+              caught. <code>maxLife</code> (12s) is a safety net that destroys
+              a shot whose return somehow stalls, since
+              <code>destroyWhenReached</code> is off for these.</em></label>
+      </div>
+    </details>
+
+    <details class="block">
       <summary><input type="checkbox" class="gate">ricochet
         <span class="tag">bullets that bounce off things</span></summary>
       <div class="fields grid">
@@ -2443,8 +2890,16 @@
               static. Needs art that tiles seamlessly left-to-right.
               <br>("simple" isn't offered: that draw mode ignores the
               renderer's size, and size is the only thing making the beam reach
-              its target, so the beam would be a stub at the
-              muzzle.)</em></label>
+              its target, so the beam would be a stub at the muzzle.)
+              <br><br><b>Two traps with repeat, both worth reading:</b>
+              <br>&bull; The stock beam sprites are 8&times;8 <i>gradients</i>
+              drawn to be stretched, so repeating one just makes a stripey mess.
+              <code>repeat</code> only makes sense with your own seamless art.
+              The mod warns if you use it with the template's sprite.
+              <br>&bull; Tiled draw mode fills the size by repeating in
+              <b>BOTH axes</b>. So a <code>thickness</code> taller than your
+              sprite stacks it <i>vertically</i> &mdash; <b>this is what looks
+              like "two beams"</b>. See the thickness field below.</em></label>
         <label class="field"><span>thickness</span>
           <input type="number" step="any" data-path="weapon.beam.thickness"
                  placeholder="0.4">
@@ -2453,7 +2908,18 @@
               <code>rayWidth</code> is the separate hit thickness, and the two
               are worth keeping roughly in step or the beam will look like it
               misses. <code>projectileScale</code> also scales this if you'd
-              rather multiply than set.</em></label>
+              rather multiply than set.
+              <br><br><b>With <code>tiling: "repeat"</code> thickness is not
+              free.</b> Tiled mode repeats the sprite in both directions, so
+              thickness is really "how many rows of sprite" - set it to 0.8 with
+              a 0.4-unit-tall sprite and you get exactly <b>two stacked
+              beams</b>. In repeat mode the thickness comes from your <i>art</i>:
+              at 20 px per unit, a 16&nbsp;px-tall sprite is 0.8 units. Draw it
+              taller for a thicker beam. Leave thickness blank and the mod
+              matches the sprite for you; set it anyway and it warns with the
+              number your sprite actually wants.
+              <br>With <code>stretch</code> none of this applies - thickness is
+              free.</em></label>
         <label class="field"><span>warmupSprite</span>
           <input type="text" data-path="weapon.beam.warmupSprite"
                  placeholder="myCharge">
@@ -2839,8 +3305,21 @@
           <input type="text" data-path="module.displayName">
           <em>Name on the module card. Leave blank to reuse the weapon's displayName.</em></label>
         <label class="field"><span>level</span>
-          <input type="number" step="1" data-path="module.level">
-          <em>Starting level - picks which entry of any level-scaling value is used.</em></label>
+          <input type="number" step="1" data-path="module.level" value="0">
+          <em>Starting level, which feeds any level-scaling value on the module:
+              the game evaluates those at <code>level - 1</code>, as
+              <code>base + change &times; (level - 1)</code>.
+              <br><b>Every stock module ships at level 1</b>, which is the
+              value that yields exactly the base number. This page defaults to
+              <b>0</b> instead, so a green-crate bonus module's first upgrade
+              brings the module up to that baseline rather than straight past
+              it.
+              <br><b>It makes no difference to a Forge weapon today:</b> the
+              only level-scaling value WeaponForge writes is
+              <code>resourceGain</code>, and that is created with a change of 0,
+              so every level evaluates to the same number. It starts to matter
+              once a module carries a genuinely levelled effect &mdash; which is
+              ModuleForge territory.</em></label>
         <label class="field"><span>icon (pick a weapon's icon)</span>
           <select id="f-icon-preset">
             <option value="">-- keep template icon --</option>
@@ -2915,10 +3394,70 @@
         <label class="field"><span>resource gain: amount</span>
           <input type="number" step="any" data-path="module.resourceGain.amount">
           <em>capacity added when equipped</em></label>
-        <label class="field"><span>power nodes</span>
+        <label class="field"><span>repeatInShop</span>
+          <select data-path="module.repeatInShop" data-type="bool">
+            <option value="">keep default (once per run)</option>
+            <option value="true">true - the shop can offer it again</option>
+            <option value="false">false - once per run</option>
+          </select>
+          <em>whether the shop will stock this weapon <b>more than once</b> in a
+              run. Off by default: the game drops a module from the pool once
+              you have bought or picked one up. This is the <i>shop</i> twin of
+              <code>lootRepeat</code>, which does the same job for
+              crates.</em></label>
+        <label class="field"><span>gridPlacementSfx <span class="tag">accepts YOUR sounds</span></span>
+          <input type="text" data-path="module.gridPlacementSfx"
+                 placeholder="myclick, or an audio guid">
+          <em>the click when this weapon is <b>dropped onto the ship grid</b>.
+              Exactly one place in the game plays it
+              (<code>ModuleGridScreen</code>, on drop), so it can't leak
+              anywhere else &mdash; and stock modules leave it silent, so this is
+              free character.
+              <br>Takes an audio <b>GUID</b> <i>or</i> the name of a file in
+              your <code>sounds</code> folder, same as the weapon sound slots.
+              A name that is neither is reported in the log rather than being
+              silently mute.</em></label>
+        <label class="field"><span>power nodes (fixed)</span>
           <input type="number" step="1" data-path="module.powerNodes"
                  placeholder="e.g. 4">
-          <em>power cores that can attach (the 0/N cap; Popper is 2-3)</em></label>
+          <em>power cores that can attach (the 0/N cap; Popper is 2-3). A plain
+              number is a fixed cap &mdash; every copy of this weapon gets exactly
+              this many. For a cap that <b>rolls per drop</b>, use the two
+              fields below instead.</em></label>
+        <label class="field"><span>power nodes: min <span class="tag">random roll</span></span>
+          <input type="number" step="1" data-path="module.powerNodesMin"
+                 placeholder="1">
+          <em>lowest cap a dropped copy can roll.</em></label>
+        <label class="field"><span>power nodes: max <span class="tag">random roll</span></span>
+          <input type="number" step="1" data-path="module.powerNodesMax"
+                 placeholder="8">
+          <em>highest cap a dropped copy can roll (inclusive).
+              <br><b>Fill either of these in and the cap is rolled fresh for
+              every dropped copy</b>, which is what makes finding a duplicate
+              worthwhile &mdash; and the pickup <b>shows the rolled number on the
+              ground</b> before you take it. Setting only one end gives a fixed
+              cap. If you fill these in <i>and</i> the fixed field above, the
+              range wins and you get a warning.
+              <br>Pairs with <code>lootRepeat</code>. The roll is uniform, so
+              a max roll is as likely as a min one.</em></label>
+        <label class="field"><span>power nodes as a RANDOM RANGE <span class="tag">loot rolls</span></span>
+          <em>Hand-edit the saved JSON into a range and the cap is <b>rolled per
+              dropped copy</b>:
+              <br><code>"powerNodes": { "min": 1, "max": 8 }</code>
+              <br><br>This is the game's own behaviour, not something bolted on:
+              <code>Module</code>'s constructor does
+              <code>Random.Range(powerLevel.Min, powerLevel.Max)</code>, and every
+              dropped pickup is built through
+              <code>ModuleData.DeepCopy()</code>, so <b>each copy gets its own
+              roll</b>. The pickup even <b>shows the rolled number on the ground
+              before you take it</b>, and hovering it reads "MAX POWER CORES: N".
+              The value sticks with that copy and survives save/load.
+              <br><br><b>Pair it with <code>lootRepeat</code></b> and you get a
+              proper loot loop: the same weapon can drop again, and each time it
+              might be a better roll worth swapping to.
+              <br><br>One limit worth knowing: the roll is <b>uniform</b>, so an 8
+              is exactly as likely as a 1. Making high caps genuinely <i>rare</i>
+              would need new code &mdash; ask if you want it.</em></label>
       </div>
     </details>
   </section>
@@ -3126,6 +3665,34 @@
       }
     }
 
+    // powerNodes: fold the helper min/max fields into the { min, max }
+    // object the mod expects.
+    //
+    // These are deliberately NOT bound to "module.powerNodes.min" - a path
+    // that is a prefix of another (module.powerNodes vs module.powerNodes.min)
+    // makes deepSet write a number and then try to walk into it, which THROWS
+    // and silently drops every field after it. So they get their own
+    // non-colliding names and are assembled here instead.
+    if (out.module) {
+      var pnMin = out.module.powerNodesMin;
+      var pnMax = out.module.powerNodesMax;
+      delete out.module.powerNodesMin;
+      delete out.module.powerNodesMax;
+
+      if (pnMin !== undefined || pnMax !== undefined) {
+        if (out.module.powerNodes !== undefined) {
+          warn.push("⚠ power nodes: a fixed value AND a min/max range were " +
+                    "both set - using the range.");
+        }
+        // One end on its own still makes sense: it becomes a fixed cap.
+        var lo = (pnMin !== undefined) ? pnMin : pnMax;
+        var hi = (pnMax !== undefined) ? pnMax : pnMin;
+        if (hi < lo) { var t = lo; lo = hi; hi = t;
+          warn.push("⚠ power nodes: min was above max - swapped."); }
+        out.module.powerNodes = { min: lo, max: hi };
+      }
+    }
+
     // explosion: convert flat damageAmount/damageType into the
     // damages list the game expects
     if (out.weapon && out.weapon.explosion) {
@@ -3320,6 +3887,17 @@
       if ("amount" in dm) d.weapon.explosion.damageAmount = dm.amount;
       if ("damageType" in dm) d.weapon.explosion.damageType = dm.damageType;
       delete d.weapon.explosion.damages;
+    }
+
+    // build() folds the helper min/max fields into module.powerNodes = {min,max};
+    // unfold it so a loaded preset repopulates them instead of silently
+    // dropping the range (loadObject skips object values).
+    if (d.module && d.module.powerNodes &&
+        typeof d.module.powerNodes === "object") {
+      var pn = d.module.powerNodes;
+      if ("min" in pn) d.module.powerNodesMin = pn.min;
+      if ("max" in pn) d.module.powerNodesMax = pn.max;
+      delete d.module.powerNodes;
     }
 
     if (d.name) nameInput.value = d.name;
@@ -3556,6 +4134,99 @@
         damage: { amount: 3, damageType: "Resource White" }
       },
       module: { color: "ColorPower" }
+    },
+    "Boomerang": {
+      name: "Boomerang",
+      displayName: "BOOMERANG",
+      description: "A spinning disc that flies out, turns around and comes back - hitting everything twice.",
+      template: "Module Weapon White DiscGun",
+      slot: "primary",
+      target: "enemies",
+      boomerang: {
+        enabled: true,
+        returnPath: "home",
+        returnOn: "range",
+        returnSpeed: 1.2,
+        returnDamage: 1.5,
+        onCatch: "vanish",
+        pierce: true,
+        rehit: true
+      },
+      weapon: {
+        fireRate: 1.5,
+        cost: 1,
+        damage: { amount: 3, damageType: "Resource White" },
+        projectileSpeed: 34,
+        rangeData: {
+          enabled: true,
+          range: 12,
+          slowDown: true,
+          destroyWhenReached: false
+        }
+      },
+      module: {
+        icon: "HUD_GridTiles_13",
+        color: "ColorBlue"
+      }
+    },
+    "Snowball": {
+      name: "Snowball",
+      displayName: "SNOWBALL",
+      description: "Leaves the barrel as a pebble and lands like a boulder.",
+      template: "Module Weapon White Derbis",
+      slot: "primary",
+      target: "enemies",
+      grow: {
+        enabled: true,
+        from: 0.25,
+        to: 3.5,
+        over: "distance",
+        damageAtFull: 2.5,
+        curve: 1.6,
+        hitbox: true
+      },
+      weapon: {
+        fireRate: 1.2,
+        cost: 1,
+        damage: { amount: 2, damageType: "Resource White" },
+        projectileSpeed: 22,
+        projectileRadius: 0.35,
+        rangeData: { enabled: true, range: 16, destroyWhenReached: true },
+        piercingData: { enabled: true }
+      },
+      module: {
+        icon: "HUD_GridTiles_29",
+        color: "ColorWhite"
+      }
+    },
+    "Deflector": {
+      name: "Deflector",
+      displayName: "DEFLECTOR",
+      description: "A slow shield disc that catches enemy fire and throws it back at them.",
+      template: "Module Weapon White DiscGun",
+      slot: "primary",
+      target: "enemies",
+      deflect: {
+        enabled: true,
+        mode: "reflect",
+        aim: "nearest",
+        radius: 3,
+        damage: 1.5,
+        speed: 1.3
+      },
+      weapon: {
+        fireRate: 0.8,
+        cost: 1.5,
+        damage: { amount: 1, damageType: "Resource White" },
+        projectileSpeed: 12,
+        projectileRadius: 0.5,
+        rangeData: { enabled: true, range: 14, destroyWhenReached: true },
+        piercingData: { enabled: true }
+      },
+      module: {
+        icon: "HUD_GridTiles_25",
+        color: "Color Tech"
+      }
     }
   };
 

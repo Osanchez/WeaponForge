@@ -267,21 +267,160 @@ Example - turn a custom rocket into a gadget on key 1:
                     and turret ammo. ("shop" is a separate toggle and is
                     off by default, so "none" on its own = nowhere at all.)
 
-HOW LOOT WORKS: the game's crates roll their module from a weighted
-pool. A loot-enabled Forge weapon is added into those crate module
-pools, so it can appear in any crate that drops modules. It does NOT
-get added to resource/scrap drops or to enemy-specific drops - only
-to crates that already drop modules.
+HOW LOOT WORKS: a crate carries a LootDropper pointing at a DropTable,
+and that table rolls exactly ONE module from a weighted pool (plus a
+fixed pile of resources). The game already splits those pools by
+element, which is what lets you pick WHICH crate your weapon comes
+from. Resource/scrap-only tables are never touched.
 
 "lootWeight" (default 10) is how likely your weapon is compared to
-the other modules in that pool. The stock modules sit around weight
-10, so 10 is "as common as a normal module", 20 is twice as likely,
-5 is half as likely.
+everything else IN THE SAME POOL. It is a plain weight, not a percent:
+your odds are yourWeight / (poolTotal + yourWeight).
+
+POOL SIZES DIFFER ENORMOUSLY, so the same weight behaves very
+differently depending on lootFrom. Total weight already sitting in each
+pool, and what a default 10 actually gets you:
+
+    tech      total  50   ->  about 17%
+    purple    total 161   ->  about  6%
+    white     total 196   ->  about  5%
+    caps      total 201   ->  about  5%
+    queen     total 221   ->  about  4%  (but she drops 3 at once)
+
+So a weapon at weight 10 is about THREE TIMES more likely to appear
+from Tech crates than from any other. To be roughly as common in White
+as in Tech you would need about weight 40.
+
+Those are the odds on a FRESH run - the game shrinks a module's weight
+as you collect copies of it (see lootRepeat), so pools thin out as a
+run goes on.
+
+"lootFrom" - WHICH CRATES. Leave it out (or use "all") and the weapon
+drops from every pool, which is what "loot" has always meant. Give one
+name, or a list, to restrict it:
+
+    "lootFrom": "tech"
+    "lootFrom": ["white", "caps"]
+
+THE FIVE POOLS THAT ACTUALLY WORK:
+  "white"    the plain CRATE. The biggest pool - 18 entries, including
+             all 8 White weapons, boosters and augments. Also used by
+             the CrossJock and CrossRed Bomber enemies.
+  "caps"     CRATE CAPS (orange). 11 entries - Loon, Laser, Flame,
+             Rocket, Igniter, burn augments.
+  "purple"   CRATE PURPLE. 11 entries - Shard, Rocket, Marbles,
+             ClusterCube, AirMines, Teardrop.
+  "tech"     CRATE TECH. The SMALLEST pool at only 5 entries, so your
+             weapon has the best odds of showing up here. Also used by
+             the CRAWLER enemy.
+  "queen"    a generic pool used only by the QUEEN, who drops THREE
+             modules at once.
+Aliases: "stamina"="white", "orange"="caps", "generic"="queen". The
+full asset name (e.g. "DropGroup Modules Crate Tech") also works.
+
+TWO MORE THE MOD *ADDS* A MODULE ROLL TO. Neither drops a module in the
+base game, so naming one makes the mod append a NEW drop entry to that
+crate. It is PURELY ADDITIVE - the crate keeps every one of its normal
+contents and gains a module on top - and it only happens if a weapon
+EXPLICITLY names the crate, so leaving lootFrom out never changes
+anything.
+
+  "level2"   CRATE LEVEL 2. It already has a 5-module pool wired up that
+             the game never rolls, so this revives it: your weapon
+             competes with those 5 stock regen/generator modules. That
+             pool totals only 16, so a weight-10 weapon is about 38%.
+             Arguably fixes an oversight in the game's own data.
+  "money"    CRATE MONEY. No module pool exists anywhere for it, so the
+             mod creates one. Only YOUR money-targeting weapons are in
+             it, which means one of them ALWAYS drops from a money crate.
+             That is strong - use lootWeight to balance between several,
+             or pick a different crate if it is too generous.
+
+WHAT IS STILL NOT AVAILABLE, AND WHY: the remaining crates roll no
+module POOL and have nothing sensible to graft.
+
+  CRATE GREEN is the BONUS / UPGRADE crate. It does not roll a pool - it
+  always hands you exactly one "Module BoosterCore" (plus fuel and red
+  resource). Those are the green modules with a little GRID PATTERN on
+  them: park one beside your upgrade modules and everything inside its
+  pattern gains +1 LEVEL, a real stat increase. Overlap two patterns on
+  the same module and the bonuses STACK. Each BoosterCore randomly draws
+  one of THREE shapes, it must be powered and connected to do anything,
+  and it only lifts modules flagged "canBeBoosted" (boosters cannot
+  boost each other). Weapons and gadgets benefit too - a levelled drone
+  gadget raises its drone cap, for example.
+  The six BOX pickups each drop one fixed item.
+
+If you name any of these, it is refused with an explanation in the log
+rather than silently never dropping.
+
+ENEMIES: four enemies really do roll a module pool, and they SHARE the
+crate pools rather than having their own - Crawler uses tech, CrossJock
+and CrossRed Bomber use white, and the Queen has her generic one. So
+targeting "tech" also means "drops from Crawlers". Every other enemy
+drops resources only; making one of those drop a module needs a change
+we have not built yet.
+
+"lootRepeat" - ALLOW DUPLICATES. By default a weapon you already own
+stops dropping, and that is the GAME's rule rather than ours: every
+module carries a "repeatedDropChanceMultiplyer" that multiplies its
+drop weight once for each copy you already have, and 120 of the ~145
+stock modules set it to 0 - so one copy takes it to zero weight for the
+rest of the run.
+
+    "lootRepeat": true     keep dropping at full chance, forever
+    "lootRepeat": 0.5      each copy you own halves the odds of the
+                           next, so duplicates get rarer but never
+                           impossible
+    "lootRepeat": false    the stock once-per-run behaviour (default)
+
+This is set on a private clone of your module, so it can never make a
+stock weapon start repeating.
+
+"repeatInShop" (inside the "module" block) is the SHOP twin of
+lootRepeat: true lets the shop stock the weapon more than once in a run.
+Off by default, because the game drops a module from the pool once you
+have bought or picked one up.
+
+    "module": { "repeatInShop": true }
+
+"gridPlacementSfx" (also inside "module") is the click when the weapon is
+DROPPED ONTO THE SHIP GRID. Exactly one place in the game plays it
+(ModuleGridScreen, on drop), so it cannot leak anywhere else, and stock
+modules leave it silent - so it is free character. It takes an audio GUID
+OR the name of a file in your "sounds" folder, exactly like the weapon
+sound slots:
+
+    "module": { "gridPlacementSfx": "myclick" }
+
+MAKING DUPLICATES WORTH FINDING. Pair "lootRepeat" with a RANGE on
+"powerNodes" (inside the "module" block) and the power-core cap is
+ROLLED PER DROPPED COPY:
+
+    "lootRepeat": true,
+    "module": { "powerNodes": { "min": 1, "max": 8 } }
+
+The Weapon Builder page has "power nodes: min" and "power nodes: max"
+fields for this, so you do not have to hand-edit - fill either in and it
+writes the range for you. (Filling in the plain "power nodes (fixed)"
+field as well is fine; the range wins and the page warns.)
+
+That is the game's own behaviour, not something added: Module's
+constructor does Random.Range(powerLevel.Min, powerLevel.Max), and
+every dropped pickup is created through ModuleData.DeepCopy(), so each
+copy gets its own roll. The pickup SHOWS the rolled number on the
+ground before you pick it up (hover reads "MAX POWER CORES: N"), the
+value stays with that copy, and it survives save/load. So finding the
+same weapon again is a chance at a better one.
+
+The roll is UNIFORM though - an 8 is exactly as likely as a 1. Making
+high caps genuinely rare would need new code.
 
 NOTE: loot and starter both still register the weapon at startup
 (so saves keep working). "loot" just hides it from the start screen.
-This does NOT add the weapon to the SHOP - only to smashable crate
-drops. Shop injection is a separate system and isn't supported yet.
+"source" does NOT affect the SHOP - that is the separate "shop" toggle
+below (with "shopPrice" and "shopUnlockLevel"), which IS supported and
+off by default.
 
 Example loot-only weapon:
   {
@@ -1552,6 +1691,191 @@ PROJECTILE templates also accept:
   are firing many times a second, and "repeatMinDelay" in your custom shoot
   sound's .json so it doesn't machine-gun into noise.
 
+  BULLET DEFLECTOR - TOP-LEVEL "deflect" block.
+
+  The shot clears enemy bullets out of the air as it travels - destroying
+  them, or TURNING THEM AROUND and sending them back. This is the first
+  DEFENSIVE weapon in the mod, and a slow disc swept across incoming fire
+  plays completely differently from anything else here.
+
+  WHY A HAND-ROLLED VERSION WOULD NOT WORK: PUNK projectiles resolve
+  their own collisions with a CircleCast, so their Collider2D is DISABLED
+  on the prefab. Enemy bullets are invisible to Physics2D.OverlapCircle -
+  a query finds nothing no matter how big the radius. The mod keeps its
+  own register of live enemy shots instead, switched on only when a
+  weapon needs it.
+
+      "deflect": true           on, destroys fire within 2 units
+      "deflect": {
+        "enabled": true,
+        "mode": "reflect",
+        "aim": "nearest",
+        "radius": 3,
+        "maxTotal": 0,
+        "damage": 1.5,
+        "speed": 1.3,
+        "interval": 0.05,
+        "aimRange": 25
+      }
+
+    mode      "destroy" (default) makes incoming fire vanish - reliable
+              and readable, good for carving a safe lane through a bullet
+              wall. "reflect" re-factions the bullet so it becomes YOURS:
+              it damages enemies, cannot hit you, and kills with it are
+              credited to you. More satisfying, and it scales with how
+              much the enemy is shooting rather than with your damage.
+    aim       reflect only. "back" (default) is honest physics and often
+              returns it to whoever fired it. "nearest" re-aims at the
+              closest valid target instead, which connects far more often
+              - same target-finder as "homing", so it never picks terrain
+              or your own side.
+    radius    how far from the shot fire is caught. 2 is a comfortable
+              bubble; 5+ turns one shot into a moving safe zone, which is
+              powerful - pair it with a slow fire rate or a maxTotal.
+    maxTotal  how many shots ONE projectile may deal with over its life.
+              0 = unlimited. A small number (2-3) makes each deflector
+              shot a precious aimed thing rather than a blanket shield.
+    damage    reflect only: multiplier on the returned bullet's damage.
+    speed     reflect only: multiplier on its speed. Above 1 helps it
+              reach the enemy before they move.
+    interval  seconds between sweeps (default 0.05). It is a distance
+              test over every live enemy bullet, and 20x/sec looks
+              identical to every frame at a fraction of the cost.
+    aimRange  how far a reflected bullet looks for a target (default 25).
+
+  Pairs naturally with a slow, long-lived, low-damage shot. Projectile
+  weapons only, not usePhysics. Preset: "Deflector".
+
+  GROWING / SHRINKING SHOT - TOP-LEVEL "grow" block.
+
+  A pinprick that arrives as a wrecking ball, or a fat slug that tapers
+  away to nothing.
+
+  THE HITBOX GROWS WITH THE ART, AUTOMATICALLY. The game rebuilds a
+  projectile's collision circle from its Radius every single frame, and
+  that value is writable - so the thing you SEE and the thing that HITS
+  are driven by the same number and cannot drift apart.
+
+  Sizes are MULTIPLIERS of the shot's normal size, so 1 = unchanged and
+  this composes with projectileScale / projectileRadius instead of
+  fighting them. Set "from" larger than "to" and it shrinks instead.
+
+      "grow": true              on, with defaults (0.4 -> 3 over range)
+      "grow": {
+        "enabled": true,
+        "from": 0.25,
+        "to": 3.5,
+        "over": "distance",
+        "span": 16,
+        "damageAtFull": 2.5,
+        "curve": 1.6,
+        "hitbox": true,
+        "clamp": true
+      }
+
+    from / to    size at launch and at full growth, as multipliers.
+                 0.4 -> 3 is a dramatic but readable wrecking ball.
+                 Remember the hitbox comes with it, so a big "to" is a
+                 real accuracy buff, not just a look.
+    over         "distance" (default) grows with how far it has flown -
+                 consistent regardless of projectile speed. "time" grows
+                 with seconds alive instead, so a slow shot grows over a
+                 short distance.
+    span         how far (units) or how long (seconds) to reach full
+                 size. LEAVE IT OUT and it borrows the weapon's own
+                 rangeData.range - or lifetimeData.time in time mode - so
+                 the shot peaks exactly as it expires, which is almost
+                 always what you want. With neither set it falls back to
+                 10 units / 2 seconds, and the log says which it used.
+    damageAtFull damage multiplier once fully grown, ramping along the
+                 way. 1 (default) = damage never changes. 2 rewards
+                 letting the shot travel - the natural partner to a
+                 growing bullet.
+    curve        shape of the ramp. 1 = steady. Above 1 (try 2-3) stays
+                 small then swells at the last moment, reading as a
+                 charge-up. Below 1 (try 0.5) swells fast then eases.
+    hitbox       default true. False makes it purely cosmetic - looks
+                 huge, hits normally.
+    clamp        default true. False lets it keep growing past "to" for
+                 as long as the shot lives.
+
+  One thing that deliberately does NOT scale: a "trail". The game's
+  particle trails ignore their parent's scale, so the puffs stay their
+  own size while the shot balloons. Usually looks right - set the
+  trail's own "size" if you want it to match.
+
+  Projectile weapons only, not usePhysics. Preset: "Snowball".
+
+  BOOMERANG (flies out, turns around, comes back) - TOP-LEVEL "boomerang".
+
+  THE GAME ALREADY DOES THE OUTBOUND HALF. A weapon whose rangeData has
+  "slowDown" on DECELERATES as it approaches its range - and Module
+  Weapon White DiscGun ships exactly that, range 8 with slowDown on. By
+  the time the disc reaches the far end its speed is already ZERO. That
+  zero is a free, natural pivot: no snap turn, nothing to tune. So this
+  block only supplies the trip home, and the DiscGun is the obvious base
+  (it already flies out, slows, stops, and it spins).
+
+  Turning it on will ENABLE rangeData if you haven't (there would be
+  nothing to turn at), force slowDown on, and switch OFF
+  destroyWhenReached - which would otherwise kill the shot at the exact
+  moment it should be turning round. All three are logged.
+
+      "boomerang": true          on, with defaults
+      "boomerang": {
+        "enabled": true,
+        "returnPath": "home",
+        "returnOn": "range",
+        "returnSpeed": 1.2,
+        "returnDamage": 1.5,
+        "onCatch": "vanish",
+        "refund": 0.5,
+        "passes": 2,
+        "pierce": true,
+        "rehit": true,
+        "turnRate": 540,
+        "catchRadius": 1.2,
+        "maxLife": 12
+      }
+
+    returnPath   "home" (default) curves back to wherever your ship is
+                 NOW, so it always reaches you even if you moved.
+                 "retrace" flies back along the path it came out on,
+                 using breadcrumbs dropped 20x a second - so if the throw
+                 curved (wave, homing) the return curves too. Faithful,
+                 and good for hitting the same row twice, but if you have
+                 moved it returns to where you WERE and expires there.
+    returnOn     "range" (default) turns only at the far end.
+                 "hit" also turns it the moment it strikes TERRAIN, which
+                 feels reactive in tight spaces. Enemies never turn it -
+                 it pierces them.
+    returnSpeed  multiplier on the launch speed for the trip home. 1 =
+                 same as it went out. Above 1 snaps back at you, which
+                 reads well because the outbound leg ends slow.
+    returnDamage damage multiplier applied ONCE as the return begins.
+                 1.5 rewards letting the arc finish instead of firing
+                 into a wall.
+    onCatch      "vanish" (default), "refund" (pays back a share of the
+                 weapon's cost into the tank it was fired from - needs
+                 the weapon to have a cost), or "loop" (throws itself out
+                 again, "passes" times).
+    pierce       DEFAULT TRUE, and it matters: the DiscGun has piercing
+                 OFF, so out of the box it stops dead on the first thing
+                 it touches - and a boomerang that never gets past an
+                 enemy never comes back. True switches piercing on.
+    rehit        default true: a lined-up throw hits everything twice.
+                 Under the hood this is the per-target damage cooldown at
+                 0.3s - long enough that passing THROUGH an enemy still
+                 counts once, short enough that the return lands.
+    turnRate     how sharply it curves home, deg/sec (default 540). Too
+                 low and it circles you instead of being caught.
+    catchRadius  how close counts as caught (default 1.2).
+    maxLife      safety net in seconds (default 12). Needed because
+                 destroyWhenReached is off for these, so a shot whose
+                 return stalled would otherwise live forever.
+
+  Projectile weapons only, not usePhysics. See ExampleBoomerang.json.
+
   RICOCHET (bullets that bounce off things) - TOP-LEVEL "ricochet" block.
 
   WHAT IS THE GAME'S AND WHAT IS OURS. The bouncing itself is the game's
@@ -1949,6 +2273,21 @@ and damages whatever it touches, so most projectile options do nothing.
                 sprite in the game (custom searched first). The stock ones
                 are Sprite_Lazer_6_0 .. _6_0_3 - all tiny 8x8 px, because
                 they get stretched. An animation only uses frame 1 (logged).
+    TWO TRAPS WITH "repeat", both of which look like a broken beam:
+      1. The stock beam sprites are 8x8 GRADIENTS drawn to be stretched, so
+         repeating one just makes a stripey mess. "repeat" only makes sense
+         with your own seamless art. The mod warns if you use it with the
+         template's sprite.
+      2. Tiled draw mode fills the size by repeating in BOTH AXES. So a
+         "thickness" taller than your sprite stacks it VERTICALLY - THIS IS
+         WHAT LOOKS LIKE "TWO BEAMS". thickness 0.8 with a 0.4-unit-tall
+         sprite gives exactly two stacked beams. In repeat mode the thickness
+         comes from your ART: at 20 px per unit, a 16 px-tall sprite is 0.8
+         units, so draw it taller for a thicker beam. Leave thickness blank
+         and the mod matches the sprite for you; set it anyway and it warns
+         with the number your sprite actually wants. With "stretch" none of
+         this applies and thickness is free.
+
     tiling      "stretch" = what every stock beam does, one sprite pulled
                 from muzzle to target, so an 8px sprite becomes a smooth
                 gradient.
