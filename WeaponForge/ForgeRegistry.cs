@@ -58,10 +58,36 @@ namespace WeaponForge
 
         public static string WeaponsFolder()
         {
-            return Path.Combine(
-                Path.GetDirectoryName(
-                    Assembly.GetExecutingAssembly().Location),
-                "weapons");
+            return ForgeRegistry.ContentFolder("weapons");
+        }
+
+        /// <summary>
+        /// Where this plugin keeps a content folder.
+        ///
+        /// Beside the DLL, which is already what Assembly.Location gives -- but that only nests
+        /// properly when the DLL itself lives in its own folder. Installed loose in
+        /// BepInEx/plugins/ it scatters "weapons", "sprites" and "sounds" into the shared plugins
+        /// directory alongside every other mod's files, which is confusing to look at and easy to
+        /// delete by accident.
+        ///
+        /// The fallback is the point: anyone who already had content in the old flat location keeps
+        /// it working after moving WeaponForge.dll into a subfolder. Without this, tidying the
+        /// install silently empties the player's weapon list, which looks exactly like the mod
+        /// breaking.
+        /// </summary>
+        internal static string ContentFolder(string name)
+        {
+            string here = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string mine = Path.Combine(here, name);
+            if (Directory.Exists(mine)) return mine;
+
+            // Legacy: the DLL sits directly in plugins/ and the folders sit beside it. Only used
+            // when the proper location does not exist yet, so a fresh install never sees it.
+            string legacy = Path.Combine(Path.GetDirectoryName(here) ?? here, name);
+            if (Directory.Exists(legacy) && !string.Equals(legacy, mine, StringComparison.OrdinalIgnoreCase))
+                return legacy;
+
+            return mine;
         }
 
         // Scan the weapons folder and build any weapon not built yet.

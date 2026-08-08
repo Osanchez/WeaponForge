@@ -63,10 +63,7 @@ namespace WeaponForge
 
         public static string SpritesFolder()
         {
-            return Path.Combine(
-                Path.GetDirectoryName(
-                    Assembly.GetExecutingAssembly().Location),
-                "sprites");
+            return ForgeRegistry.ContentFolder("sprites");
         }
 
         public static int Count

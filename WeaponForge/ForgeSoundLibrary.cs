@@ -71,10 +71,7 @@ namespace WeaponForge
 
         public static string SoundsFolder()
         {
-            return Path.Combine(
-                Path.GetDirectoryName(
-                    Assembly.GetExecutingAssembly().Location),
-                "sounds");
+            return ForgeRegistry.ContentFolder("sounds");
         }
 
         public static int Count
