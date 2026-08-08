@@ -509,6 +509,25 @@ namespace WeaponForge
             if (discharge.chainLength <= 0)
                 return;   // no chain configured
 
+            // HAVING discharge data is not the same as the weapon wanting it
+            // fired, and this is the difference that mattered: White Worm ships
+            // a discharge block with chainLength 1 and damage 0, but
+            // impactBehaviour.discharge is 0 - so a normal Worm shot never
+            // zaps. Checking only the data made orbs zap on every contact,
+            // which looked exactly like the mod switching chain lightning on by
+            // itself.
+            //
+            // So require what the game requires: a flag that would actually
+            // trigger a discharge on a real shot. To opt IN to zapping orbs,
+            // set "impactBehaviour": { "enabled": true, "discharge": true }.
+            //
+            // Note "dischargeOnFire" is deliberately NOT one of these. That is
+            // the mod's own separate feature - it zaps from the GUN at the
+            // moment of firing, through ForgeDischargePatch - and it is a
+            // different event from an orb touching something.
+            if (!WantsDischarge())
+                return;
+
             try
             {
                 ElectricityManager em;
@@ -516,6 +535,20 @@ namespace WeaponForge
                     em.SpawnDischarge(discharge, pos);
             }
             catch { }
+        }
+
+        // Mirrors the game's own discharge triggers: on impact, at end of life,
+        // or at end of range. (ProjectileRangeData has no discharge flag - only
+        // spawnExplosion and fireSub - so there are just the two.)
+        private bool WantsDischarge()
+        {
+            var pw = weapon as ProjectileWeapon;
+
+            if (pw == null)
+                return false;
+
+            return (pw.ImpactBehaviour.enabled && pw.ImpactBehaviour.discharge)
+                || (pw.LifetimeData.enabled && pw.LifetimeData.discharge);
         }
 
         // Is this orb touching terrain? Also does the digging when

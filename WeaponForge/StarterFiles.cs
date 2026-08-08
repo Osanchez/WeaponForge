@@ -177,6 +177,37 @@ namespace WeaponForge
 ");
 
             File.WriteAllText(
+                Path.Combine(folder, "ExampleBoomerang.json"),
+@"{
+  ""name"": ""Boomerang"",
+  ""displayName"": ""BOOMERANG"",
+  ""description"": ""A spinning disc that flies out, turns around and comes back - hitting everything twice."",
+  ""template"": ""Module Weapon White DiscGun"",
+  ""baseLoadout"": ""Starter_Popper"",
+  ""weapon"": {
+    ""fireRate"": 1.5,
+    ""cost"": 1,
+    ""damage"": { ""amount"": 3, ""damageType"": ""Resource White"" },
+    ""projectileSpeed"": 34,
+    ""rangeData"": { ""enabled"": true, ""range"": 12, ""slowDown"": true }
+  },
+  ""boomerang"": {
+    ""enabled"": true,
+    ""returnPath"": ""home"",
+    ""returnSpeed"": 1.2,
+    ""returnDamage"": 1.5,
+    ""pierce"": true,
+    ""rehit"": true,
+    ""onCatch"": ""vanish""
+  },
+  ""module"": {
+    ""icon"": ""HUD_GridTiles_13"",
+    ""color"": ""ColorBlue""
+  }
+}
+");
+
+            File.WriteAllText(
                 Path.Combine(folder, "ExampleTurretDisc.json"),
 @"{
   ""name"": ""TurretDisc"",
@@ -263,6 +294,24 @@ source       where the weapon can show up (default ""starter""):
                  findable by name, so use it for helper weapons that
                  only exist to be referenced (subEmitter stages,
                  turret ammo).
+lootFrom     (loot only, optional) WHICH crates it drops from. Blank or
+             ""all"" = every pool. The five that work:
+               ""white""   the plain Crate (biggest pool, 18 entries).
+                         Also CrossJock + CrossRed Bomber enemies.
+               ""caps""    Crate Caps, 11 entries.
+               ""purple""  Crate Purple, 11 entries.
+               ""tech""    Crate Tech - only 5 entries, so BEST ODDS.
+                         Also the Crawler enemy.
+               ""queen""   the Queen's own pool (she drops 3 at once).
+             One name or a list: ""lootFrom"": [""white"", ""caps""].
+             Crate Green / Money / Level 2 and the Boxes drop no
+             modules at all, so they are not options (Level 2 has a
+             pool but the game never rolls it).
+lootRepeat   (loot only, optional) by default a weapon you already own
+             stops dropping - that is the game's rule, 120 of ~145
+             stock modules zero their own drop weight once found. Set
+             true to keep dropping at full chance, or a number like
+             0.5 so each copy you own halves the odds of the next.
 lootWeight   (loot only, optional) drop chance vs other crate modules,
              default 10. Higher = more common. Crates roll from a
              weighted pool; your weapon joins it at this weight.

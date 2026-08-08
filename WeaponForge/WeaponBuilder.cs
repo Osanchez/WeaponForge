@@ -336,6 +336,8 @@ namespace WeaponForge
                 // we only reinterpret what it wrote.
                 ApplyCustomSounds(weapon, originalSfx, fileName);
 
+                FixExplosionDamageTypes(weapon, fileName);
+
                 if (!string.IsNullOrEmpty(subEmitterName))
                 {
                     _pendingSubs.Add(new PendingSub
@@ -437,9 +439,15 @@ namespace WeaponForge
             // lands on the clone wave already made rather than a stale one.
             ApplyHoming(weapon, root, fileName);
 
-            // Last of the three prefab-cloning motion features, so it lands on
-            // the clone the others have already made.
+            // Last of the prefab-cloning motion features, so each lands on the
+            // clone the previous ones already made.
             ApplyRicochet(weapon, root, fileName);
+
+            ApplyBoomerang(weapon, root, fileName);
+
+            ApplyGrowth(weapon, root, fileName);
+
+            ApplyDeflect(weapon, root, fileName);
 
             ApplyTurret(weapon, root, fileName);
 
@@ -454,11 +462,20 @@ namespace WeaponForge
 
                 JToken powerNodes = moduleJson["powerNodes"];
 
+                // gridPlacementSfx is a REAL ModuleData field, so the mapper
+                // would happily write it - but only as a raw sfx guid. Held
+                // back so a custom sound NAME works here too, exactly like the
+                // weapon's own sound slots.
+                string gridSfx = (string)moduleJson["gridPlacementSfx"];
+
                 if (resourceGain != null)
                     moduleJson.Remove("resourceGain");
 
                 if (powerNodes != null)
                     moduleJson.Remove("powerNodes");
+
+                if (gridSfx != null)
+                    moduleJson.Remove("gridPlacementSfx");
 
                 JsonFieldMapper.Apply(
                     module,
@@ -476,6 +493,11 @@ namespace WeaponForge
                 if (powerNodes != null)
                 {
                     ApplyPowerNodes(module, powerNodes, fileName);
+                }
+
+                if (!string.IsNullOrEmpty(gridSfx))
+                {
+                    ApplyGridPlacementSfx(module, gridSfx, fileName);
                 }
             }
 
@@ -510,6 +532,8 @@ namespace WeaponForge
             if (!inStarter && !inLoot && !hidden)
                 inStarter = true;
 
+            ApplyLootRepeat(module, root, fileName);
+
             return new ForgeEntry
             {
                 loadoutName = loadoutName,
@@ -521,6 +545,7 @@ namespace WeaponForge
                 slot = slot,
                 inStarter = inStarter,
                 inLoot = inLoot,
+                lootGroups = ParseLootFrom(root, inLoot, fileName),
                 lootWeight =
                     (float?)root["lootWeight"] ?? 10f,
                 inShop =
@@ -530,6 +555,240 @@ namespace WeaponForge
                 shopUnlockLevel =
                     (int?)root["shopUnlockLevel"] ?? 1
             };
+        }
+
+        // "lootFrom": which crate pools this weapon may drop from.
+        //
+        // Absent (or "all") keeps the original behaviour - every module pool -
+        // because that is what "source": "loot" has always meant. A list picks
+        // specific ones. Returns null for "all".
+        private static string[] ParseLootFrom(
+            JObject root,
+            bool inLoot,
+            string fileName)
+        {
+            JToken token = root["lootFrom"];
+
+            if (token == null || token.Type == JTokenType.Null)
+                return null;
+
+            if (!inLoot)
+            {
+                Log.LogWarning(
+                    fileName + ": \"lootFrom\" was set but this weapon is not " +
+                    "loot-enabled, so it can never drop. Add " +
+                    "\"source\": \"loot\" (or \"both\") too.");
+            }
+
+            var names = new List<string>();
+
+            if (token.Type == JTokenType.String)
+            {
+                names.Add((string)token);
+            }
+            else if (token is JArray)
+            {
+                foreach (JToken t in (JArray)token)
+                {
+                    string s = (string)t;
+
+                    if (!string.IsNullOrEmpty(s))
+                        names.Add(s);
+                }
+            }
+            else
+            {
+                Log.LogWarning(
+                    fileName + ": \"lootFrom\" should be a name or a list of " +
+                    "names (" + ForgeLootPools.FriendlyList() + ") - ignored.");
+                return null;
+            }
+
+            var resolved = new List<string>();
+
+            foreach (string name in names)
+            {
+                string trimmed = (name ?? string.Empty).Trim();
+
+                if (trimmed.Equals("all", StringComparison.OrdinalIgnoreCase) ||
+                    trimmed.Equals("any", StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;   // every pool
+                }
+
+                string canonical;
+
+                if (!ForgeLootPools.TryResolve(trimmed, out canonical))
+                {
+                    Log.LogWarning(
+                        fileName + ": lootFrom '" + trimmed + "' is not a " +
+                        "known crate pool - use " +
+                        ForgeLootPools.FriendlyList() + ". Skipped.");
+                    continue;
+                }
+
+                if (!ForgeLootPools.IsSupported(canonical))
+                {
+                    Log.LogWarning(
+                        fileName + ": lootFrom '" + trimmed + "' resolves to '" +
+                        canonical + "', which the GAME never rolls and which " +
+                        "cannot be grafted on. A weapon in that pool could " +
+                        "never drop. Skipped.");
+                    continue;
+                }
+
+                // Money and Level 2 have no module roll of their own, so
+                // naming one makes the mod ADD one to that crate. Say so - it
+                // changes what a stock crate gives, which is worth knowing.
+                string table;
+
+                if (ForgeLootPools.NeedsGraft(canonical, out table))
+                {
+                    Log.LogInfo(
+                        fileName + ": '" + trimmed + "' has no module drop in " +
+                        "the base game, so a module roll will be ADDED to '" +
+                        table + "'. That crate keeps everything it normally " +
+                        "drops and gains a module on top." +
+                        (canonical == ForgeLootPools.Level2
+                            ? " This also revives the 5 stock regen/generator " +
+                              "modules in that pool, which the game otherwise " +
+                              "never rolls - your weapon competes with them."
+                            : " Only Forge weapons targeting \"money\" are in " +
+                              "that pool, so one of them always drops."));
+                }
+
+                if (!resolved.Contains(canonical))
+                    resolved.Add(canonical);
+            }
+
+            if (resolved.Count == 0)
+            {
+                Log.LogWarning(
+                    fileName + ": \"lootFrom\" left no usable pools, so this " +
+                    "weapon falls back to dropping from ALL of them.");
+                return null;
+            }
+
+            Log.LogInfo(
+                fileName + ": drops only from " +
+                string.Join(", ", resolved.ToArray()));
+
+            return resolved.ToArray();
+        }
+
+        // "lootRepeat": may the same weapon drop more than once in a run?
+        //
+        // The game's own anti-duplicate rule lives on the module:
+        // DroppabbleItemDistribution.GetWeight multiplies an entry's weight by
+        // repeatedDropChanceMultiplyer ONCE FOR EACH copy already dropped this
+        // run. 120 of ~145 stock modules set it to 0, so a module you already
+        // own drops to weight 0 and cannot appear again.
+        //
+        // Our module is a private clone, so changing this affects only this
+        // weapon - it can never make a stock module start repeating.
+        private static void ApplyLootRepeat(
+            ModuleData module,
+            JObject root,
+            string fileName)
+        {
+            JToken token = root["lootRepeat"];
+
+            if (module == null || token == null ||
+                token.Type == JTokenType.Null)
+            {
+                return;   // keep whatever the template shell had
+            }
+
+            float value;
+
+            if (token.Type == JTokenType.Boolean)
+            {
+                // true = full chance every time, false = the stock "once only".
+                value = (bool)token ? 1f : 0f;
+            }
+            else
+            {
+                // Strings are accepted deliberately: the builder page writes
+                // this field as text, and anyone hand-editing is just as likely
+                // to type "true" as true. Rejecting those would turn a
+                // reasonable file into a silent no-op.
+                if (!TryReadRepeat(token, out value))
+                {
+                    Log.LogWarning(
+                        fileName + ": \"lootRepeat\" should be true, false, or " +
+                        "a number from 0 to 1 - got '" + token +
+                        "', ignored.");
+                    return;
+                }
+
+                value = Mathf.Max(0f, value);
+
+                if (value > 1f)
+                {
+                    Log.LogWarning(
+                        fileName + ": \"lootRepeat\": " + value +
+                        " is above 1, which makes the weapon MORE likely to " +
+                        "drop again the more you already have. Legal, but " +
+                        "probably not what you meant - 1 keeps the chance " +
+                        "unchanged.");
+                }
+            }
+
+            module.repeatedDropChanceMultiplyer = value;
+
+            Log.LogInfo(
+                fileName + ": lootRepeat " + value +
+                (value <= 0f
+                    ? " (drops once per run, the stock behaviour)"
+                    : (value >= 1f
+                        ? " (can drop again at full chance)"
+                        : " (each copy you own makes the next x" + value +
+                          " as likely)")));
+        }
+
+        // Accepts a real number, or the words a person would actually type.
+        private static bool TryReadRepeat(JToken token, out float value)
+        {
+            value = 0f;
+
+            if (token.Type == JTokenType.Integer ||
+                token.Type == JTokenType.Float)
+            {
+                float? n = (float?)token;
+
+                if (!n.HasValue)
+                    return false;
+
+                value = n.Value;
+                return true;
+            }
+
+            string s = ((string)token ?? string.Empty).Trim();
+
+            if (s.Length == 0)
+                return false;
+
+            if (s.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                s.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
+                s.Equals("on", StringComparison.OrdinalIgnoreCase))
+            {
+                value = 1f;
+                return true;
+            }
+
+            if (s.Equals("false", StringComparison.OrdinalIgnoreCase) ||
+                s.Equals("no", StringComparison.OrdinalIgnoreCase) ||
+                s.Equals("off", StringComparison.OrdinalIgnoreCase))
+            {
+                value = 0f;
+                return true;
+            }
+
+            return float.TryParse(
+                s,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out value);
         }
 
         // Default shells to clone for the module type each slot needs.
@@ -985,6 +1244,71 @@ namespace WeaponForge
             else if (color.HasValue)
             {
                 VisualCustomizer.Recolor(clone, color.Value);
+            }
+        }
+
+        // An explosion damage with no damageType is a CRASH, not a default.
+        //
+        // ExplosionManager.SpawnExplosion does, with no null check:
+        //     Resource damageType = explosion.damages[0].damageType;
+        //     this.Spawn(damageType.explosionBasePrefab, explosion);
+        // so a missing type throws a NullReferenceException. And because that
+        // happens BEFORE DoExplosionLogic and before the projectile's own
+        // Destroy call, the symptom is bizarre rather than obvious: no blast at
+        // all, and a shot that is never destroyed so it sits there hitting the
+        // same target over and over doing "a lot of damage".
+        //
+        // The element also picks the explosion's whole VISUAL - each Resource
+        // carries its own explosionBasePrefab - which is why an explosion needs
+        // one at all. Filling it from the weapon's own damage type is both the
+        // obvious intent and the only value guaranteed to exist.
+        private static void FixExplosionDamageTypes(
+            WeaponData weapon,
+            string fileName)
+        {
+            Explosion ex = weapon.explosion;
+
+            if (ex.damages == null || ex.damages.Count == 0)
+                return;
+
+            Resource fallback = weapon.damage.damageType;
+            int fixedUp = 0;
+
+            for (int i = 0; i < ex.damages.Count; i++)
+            {
+                if (ex.damages[i].damageType != null)
+                    continue;
+
+                if (fallback == null)
+                {
+                    Log.LogError(
+                        fileName + ": explosion damage #" + (i + 1) +
+                        " has no damageType, and the weapon has no damage " +
+                        "type either to borrow. The game CRASHES on this " +
+                        "(NullReferenceException in ExplosionManager) and the " +
+                        "shot will never explode or die. Add " +
+                        "\"damageType\": \"Resource White\" to it.");
+                    continue;
+                }
+
+                Damage d = ex.damages[i];
+                d.damageType = fallback;
+                ex.damages[i] = d;
+                fixedUp++;
+            }
+
+            if (fixedUp > 0)
+            {
+                weapon.explosion = ex;
+
+                Log.LogWarning(
+                    fileName + ": " + fixedUp + " explosion damage entr" +
+                    (fixedUp == 1 ? "y had" : "ies had") +
+                    " no damageType, which would have crashed the game's " +
+                    "explosion spawner (no blast, and the shot never dies so " +
+                    "it keeps hitting). Filled in from the weapon's own type " +
+                    "'" + fallback.name + "' - set it explicitly if you " +
+                    "wanted a different element.");
             }
         }
 
@@ -1546,6 +1870,502 @@ namespace WeaponForge
                     fileName + ": homing (turnRate " + homing.turnRate +
                     " deg/s, range " + homing.range + ")");
             }
+        }
+
+        // Bullet deflector - "deflect": { ... } on the weapon.
+        //
+        // The first DEFENSIVE weapon in the mod: the shot clears enemy fire out
+        // of the air as it travels, or turns it around and sends it back.
+        private static void ApplyDeflect(
+            WeaponData weapon,
+            JObject root,
+            string fileName)
+        {
+            JToken token = root["deflect"];
+
+            if (token == null || token.Type == JTokenType.Null)
+                return;
+
+            var o = token as JObject;
+
+            if (o == null)
+            {
+                if (token.Type != JTokenType.Boolean || !(bool)token)
+                {
+                    Log.LogWarning(
+                        fileName + ": \"deflect\" should be true or an " +
+                        "object - ignored.");
+                    return;
+                }
+            }
+            else if (!((bool?)o["enabled"] ?? true))
+            {
+                return;
+            }
+
+            var pw = weapon as ProjectileWeaponData;
+
+            if (pw == null || pw.projectilePrefab == null)
+            {
+                Log.LogWarning(
+                    fileName + ": deflect only works on projectile weapons - " +
+                    "ignored.");
+                return;
+            }
+
+            if (pw.usePhysics)
+            {
+                Log.LogWarning(
+                    fileName + ": deflect does not work on usePhysics " +
+                    "(lobbed) shots - it runs on the plain projectile only. " +
+                    "Ignored.");
+                return;
+            }
+
+            GameObject clone = VisualCustomizer.ClonePrefab(
+                pw.projectilePrefab.gameObject);
+
+            var comp = clone.GetComponentInChildren<Projectile>(true);
+
+            if (comp == null)
+            {
+                Log.LogWarning(
+                    fileName + ": deflect - no Projectile on prefab.");
+                return;
+            }
+
+            var d = comp.GetComponent<ForgeDeflect>();
+
+            if (d == null)
+                d = comp.gameObject.AddComponent<ForgeDeflect>();
+
+            if (o != null)
+            {
+                d.radius = (float?)o["radius"] ?? 2f;
+                d.maxTotal = (int?)o["maxTotal"] ?? 0;
+                d.interval = (float?)o["interval"] ?? 0.05f;
+                d.damageMultiplier = (float?)o["damage"] ?? 1f;
+                d.speedMultiplier = (float?)o["speed"] ?? 1f;
+                d.aimRange = (float?)o["aimRange"] ?? 25f;
+
+                string mode =
+                    ((string)o["mode"] ?? "destroy")
+                        .Trim().ToLowerInvariant();
+
+                if (mode == "reflect" || mode == "return" || mode == "bounce")
+                {
+                    d.mode = 1;
+                }
+                else
+                {
+                    d.mode = 0;
+
+                    if (mode != "destroy" && mode != "block" &&
+                        mode != "clear")
+                    {
+                        Log.LogWarning(
+                            fileName + ": deflect mode '" + mode + "' is not " +
+                            "recognised - use \"destroy\" or \"reflect\". " +
+                            "Using destroy.");
+                    }
+                }
+
+                string aim =
+                    ((string)o["aim"] ?? "back")
+                        .Trim().ToLowerInvariant();
+
+                d.aim = (aim == "nearest" || aim == "enemy" ||
+                         aim == "target") ? 1 : 0;
+
+                if (d.aim == 0 && aim != "back" && aim != "reverse" &&
+                    aim != "sender")
+                {
+                    Log.LogWarning(
+                        fileName + ": deflect aim '" + aim + "' is not " +
+                        "recognised - use \"back\" or \"nearest\". Using " +
+                        "back.");
+                }
+            }
+
+            // Without this, enemy shots are never registered and the sweep
+            // finds nothing at all - the shared tracker is off by default so
+            // it costs nothing for weapons that don't need it.
+            ForgeProjectileTracker.Enabled = true;
+
+            pw.projectilePrefab = comp;
+
+            Log.LogInfo(
+                fileName + ": deflector (" +
+                (d.mode == 1
+                    ? "reflects enemy fire " +
+                      (d.aim == 1 ? "at the nearest enemy" : "back the way it came")
+                    : "destroys enemy fire") +
+                " within " + d.radius + " units" +
+                (d.maxTotal > 0
+                    ? ", up to " + d.maxTotal + " per shot"
+                    : ", no limit per shot") +
+                (d.mode == 1 && d.damageMultiplier != 1f
+                    ? ", x" + d.damageMultiplier + " damage" : "") + ").");
+        }
+
+        // Growing / shrinking shot - "grow": { ... } on the weapon.
+        //
+        // Cheap because Projectile.Radius is public and the collision sweep is
+        // rebuilt from it every frame, so the hitbox follows the art for free.
+        private static void ApplyGrowth(
+            WeaponData weapon,
+            JObject root,
+            string fileName)
+        {
+            JToken token = root["grow"];
+
+            if (token == null || token.Type == JTokenType.Null)
+                return;
+
+            var o = token as JObject;
+
+            if (o == null)
+            {
+                if (token.Type != JTokenType.Boolean || !(bool)token)
+                {
+                    Log.LogWarning(
+                        fileName + ": \"grow\" should be true or an object - " +
+                        "ignored.");
+                    return;
+                }
+            }
+            else if (!((bool?)o["enabled"] ?? true))
+            {
+                return;
+            }
+
+            var pw = weapon as ProjectileWeaponData;
+
+            if (pw == null || pw.projectilePrefab == null)
+            {
+                Log.LogWarning(
+                    fileName + ": grow only works on projectile weapons - " +
+                    "ignored.");
+                return;
+            }
+
+            if (pw.usePhysics)
+            {
+                Log.LogWarning(
+                    fileName + ": grow does not work on usePhysics (lobbed) " +
+                    "shots - it runs on the plain projectile only. Ignored.");
+                return;
+            }
+
+            GameObject clone = VisualCustomizer.ClonePrefab(
+                pw.projectilePrefab.gameObject);
+
+            var comp = clone.GetComponentInChildren<Projectile>(true);
+
+            if (comp == null)
+            {
+                Log.LogWarning(
+                    fileName + ": grow - no Projectile on prefab.");
+                return;
+            }
+
+            var g = comp.GetComponent<ForgeGrowth>();
+
+            if (g == null)
+                g = comp.gameObject.AddComponent<ForgeGrowth>();
+
+            if (o != null)
+            {
+                g.from = (float?)o["from"] ?? 0.4f;
+                g.to = (float?)o["to"] ?? 3f;
+                g.span = (float?)o["span"] ?? 0f;
+                g.hitbox = (bool?)o["hitbox"] ?? true;
+                g.damageAtFull = (float?)o["damageAtFull"] ?? 1f;
+                g.curve = (float?)o["curve"] ?? 1f;
+                g.clamp = (bool?)o["clamp"] ?? true;
+
+                string over =
+                    ((string)o["over"] ?? "distance")
+                        .Trim().ToLowerInvariant();
+
+                g.overTime = (over == "time" || over == "seconds" ||
+                              over == "lifetime");
+
+                if (!g.overTime && over != "distance" && over != "range" &&
+                    over != "units")
+                {
+                    Log.LogWarning(
+                        fileName + ": grow \"over\": '" + over + "' is not " +
+                        "recognised - use \"distance\" or \"time\". Using " +
+                        "distance.");
+                }
+            }
+
+            if (g.from < 0f) g.from = 0f;
+            if (g.to < 0f) g.to = 0f;
+
+            // Nothing would visibly happen, which is worth saying rather than
+            // leaving them to wonder.
+            if (Mathf.Approximately(g.from, g.to))
+            {
+                Log.LogWarning(
+                    fileName + ": grow \"from\" and \"to\" are both " + g.to +
+                    ", so the shot never changes size. Set them to different " +
+                    "values (e.g. from 0.4 to 3).");
+            }
+
+            pw.projectilePrefab = comp;
+
+            // The span defaults to the weapon's own range so the shot peaks
+            // exactly as it expires - say which one it landed on, since a
+            // weapon with no rangeData falls back to a flat number.
+            string spanText;
+
+            if (g.span > 0f)
+            {
+                spanText = g.span + (g.overTime ? "s" : " units");
+            }
+            else if (!g.overTime && pw.rangeData.enabled &&
+                     pw.rangeData.range > 0f)
+            {
+                spanText = "the weapon's range (" + pw.rangeData.range + ")";
+            }
+            else if (g.overTime && pw.lifetimeData.enabled &&
+                     pw.lifetimeData.time > 0f)
+            {
+                spanText =
+                    "the weapon's lifetime (" + pw.lifetimeData.time + "s)";
+            }
+            else
+            {
+                spanText =
+                    (g.overTime ? "2s" : "10 units") +
+                    " (no rangeData/lifetimeData to borrow)";
+            }
+
+            Log.LogInfo(
+                fileName + ": " +
+                (g.to > g.from ? "growing" : "shrinking") + " shot x" +
+                g.from + " -> x" + g.to + " over " + spanText +
+                (g.hitbox ? ", hitbox follows" : ", visual only") +
+                (g.damageAtFull != 1f
+                    ? ", damage up to x" + g.damageAtFull : "") + ".");
+        }
+
+        // Boomerang - "boomerang": { ... } on the weapon.
+        //
+        // Leans on how much of this the game already does: a weapon with
+        // rangeData.slowDown decelerates to a dead stop at its range (the
+        // DiscGun does exactly that at range 8), which is a free, natural
+        // pivot. So the outbound half is stock; this supplies the trip home.
+        private static void ApplyBoomerang(
+            WeaponData weapon,
+            JObject root,
+            string fileName)
+        {
+            JToken token = root["boomerang"];
+
+            if (token == null || token.Type == JTokenType.Null)
+                return;
+
+            var o = token as JObject;
+
+            if (o == null)
+            {
+                if (token.Type != JTokenType.Boolean || !(bool)token)
+                {
+                    Log.LogWarning(
+                        fileName + ": \"boomerang\" should be true or an " +
+                        "object - ignored.");
+                    return;
+                }
+            }
+            else if (!((bool?)o["enabled"] ?? true))
+            {
+                return;
+            }
+
+            var pw = weapon as ProjectileWeaponData;
+
+            if (pw == null || pw.projectilePrefab == null)
+            {
+                Log.LogWarning(
+                    fileName + ": boomerang only works on projectile weapons " +
+                    "- ignored.");
+                return;
+            }
+
+            if (pw.usePhysics)
+            {
+                Log.LogWarning(
+                    fileName + ": boomerang does not work on usePhysics " +
+                    "(lobbed) shots - the steering runs on the plain " +
+                    "projectile only. Ignored.");
+                return;
+            }
+
+            // The pivot IS rangeData: slowDown brings the shot to a halt at
+            // its range, and that halt is what we turn on. Without it there is
+            // nothing to turn at, so supply a sane one rather than silently
+            // doing nothing.
+            var rd = pw.rangeData;
+
+            if (!rd.enabled || rd.range <= 0f)
+            {
+                rd.enabled = true;
+
+                if (rd.range <= 0f)
+                    rd.range = 8f;
+
+                Log.LogWarning(
+                    fileName + ": boomerang needs rangeData to know where to " +
+                    "turn around - enabling it at range " + rd.range +
+                    ". Set \"rangeData\": { \"enabled\": true, \"range\": N } " +
+                    "to choose the throw distance yourself.");
+            }
+
+            // slowDown is what makes the turn look like a turn instead of a
+            // snap: the shot eases to a stop, pivots, and accelerates back.
+            rd.slowDown = true;
+
+            // Would otherwise destroy the shot at exactly the moment it should
+            // be turning round.
+            rd.destroyWhenReached = false;
+
+            pw.rangeData = rd;
+
+            bool pierce = (bool?)(o != null ? o["pierce"] : null) ?? true;
+
+            if (pierce)
+            {
+                var pd = pw.piercingData;
+
+                if (!pd.enabled)
+                {
+                    pd.enabled = true;
+                    pw.piercingData = pd;
+                }
+            }
+
+            GameObject clone = VisualCustomizer.ClonePrefab(
+                pw.projectilePrefab.gameObject);
+
+            var comp = clone.GetComponentInChildren<Projectile>(true);
+
+            if (comp == null)
+            {
+                Log.LogWarning(
+                    fileName + ": boomerang - no Projectile on prefab.");
+                return;
+            }
+
+            var boom = comp.GetComponent<ForgeBoomerang>();
+
+            if (boom == null)
+                boom = comp.gameObject.AddComponent<ForgeBoomerang>();
+
+            if (o != null)
+            {
+                boom.returnOnHit = ParseReturnOn(o["returnOn"], fileName);
+
+                string path =
+                    ((string)o["returnPath"] ?? "home")
+                        .Trim().ToLowerInvariant();
+
+                boom.retrace = (path == "retrace" || path == "path" ||
+                                path == "trace");
+
+                if (path != "retrace" && path != "path" && path != "trace" &&
+                    path != "home" && path != "ship" && path != "player")
+                {
+                    Log.LogWarning(
+                        fileName + ": returnPath '" + path + "' is not " +
+                        "recognised - use \"home\" or \"retrace\". Using " +
+                        "home.");
+                }
+
+                boom.returnSpeed = (float?)o["returnSpeed"] ?? 1f;
+                boom.turnRate = (float?)o["turnRate"] ?? 540f;
+                boom.catchRadius = (float?)o["catchRadius"] ?? 1.2f;
+                boom.rehit = (bool?)o["rehit"] ?? true;
+                boom.returnDamage = (float?)o["returnDamage"] ?? 1f;
+                boom.passes = (int?)o["passes"] ?? 2;
+                boom.refundFraction = (float?)o["refund"] ?? 0.5f;
+                boom.maxLife = (float?)o["maxLife"] ?? 12f;
+
+                string onCatch =
+                    ((string)o["onCatch"] ?? "vanish")
+                        .Trim().ToLowerInvariant();
+
+                if (onCatch == "refund")
+                    boom.onCatch = 1;
+                else if (onCatch == "loop" || onCatch == "yoyo")
+                    boom.onCatch = 2;
+                else
+                {
+                    boom.onCatch = 0;
+
+                    if (onCatch != "vanish" && onCatch != "none")
+                    {
+                        Log.LogWarning(
+                            fileName + ": onCatch '" + onCatch + "' is not " +
+                            "recognised - use \"vanish\", \"refund\" or " +
+                            "\"loop\". Using vanish.");
+                    }
+                }
+            }
+
+            // Refunding needs to know what the shot cost and which tank to put
+            // it back into - neither is reachable from the projectile.
+            boom.refundResource = weapon.resourceUsed;
+            boom.refundAmount = weapon.cost;
+
+            if (boom.onCatch == 1 &&
+                (boom.refundResource == null || boom.refundAmount <= 0f))
+            {
+                Log.LogWarning(
+                    fileName + ": \"onCatch\": \"refund\" but this weapon " +
+                    "has no resource cost to refund - catching it will just " +
+                    "make it vanish.");
+            }
+
+            pw.projectilePrefab = comp;
+
+            Log.LogInfo(
+                fileName + ": boomerang (range " + rd.range + ", " +
+                (boom.retrace ? "retraces its path" : "homes back to you") +
+                ", returns at x" + boom.returnSpeed + " speed" +
+                (boom.returnOnHit ? ", also turns on walls" : "") +
+                (boom.returnDamage != 1f
+                    ? ", x" + boom.returnDamage + " damage coming back" : "") +
+                (boom.onCatch == 1
+                    ? ", refunds " + (boom.refundFraction * 100f) + "%"
+                    : (boom.onCatch == 2
+                        ? ", loops " + boom.passes + " times" : "")) + ")");
+        }
+
+        // "range" (default) or "hit"/"any" - the latter also turns on terrain.
+        private static bool ParseReturnOn(JToken token, string fileName)
+        {
+            if (token == null || token.Type == JTokenType.Null)
+                return false;
+
+            string s = ((string)token ?? string.Empty)
+                .Trim().ToLowerInvariant();
+
+            if (s == "range" || s.Length == 0)
+                return false;
+
+            if (s == "hit" || s == "any" || s == "wall" || s == "terrain" ||
+                s == "first")
+            {
+                return true;
+            }
+
+            Log.LogWarning(
+                fileName + ": returnOn '" + s + "' is not recognised - use " +
+                "\"range\" or \"hit\". Using range.");
+            return false;
         }
 
         // Bullet ricochet - "ricochet": { ... } on the weapon.
@@ -2258,6 +3078,47 @@ namespace WeaponForge
                     fileName + ": burn color " +
                     (effect.rgb ? "RGB" : colorText) +
                     (includeTerrain ? " +terrain" : ""));
+            }
+        }
+
+        // The click when this module is DROPPED onto the ship grid.
+        //
+        // Exactly one call site in the game - ModuleGridScreen does
+        // AudioManager.PlaySfx(module.Data.gridPlacementSfx) on drop - so it
+        // cannot leak into anything else. Accepts a stock sfx guid OR the name
+        // of a file in the "sounds" folder, since it goes through the same
+        // AudioManager the weapon slots do.
+        private static void ApplyGridPlacementSfx(
+            ModuleData module,
+            string value,
+            string fileName)
+        {
+            string wanted = value.Trim();
+
+            // Nothing to inherit from here: unlike a weapon slot there is no
+            // "sound this replaces", so a custom clip is registered on its own
+            // and takes the sensible defaults. Not looping - it is one click.
+            string guid =
+                ForgeSfxRegistry.Resolve(wanted, null, false, fileName);
+
+            if (guid != null)
+            {
+                module.gridPlacementSfx = guid;
+
+                Log.LogInfo(
+                    fileName + ": gridPlacementSfx -> custom sound '" +
+                    wanted + "'.");
+                return;
+            }
+
+            module.gridPlacementSfx = wanted;
+
+            if (!ForgeSfxRegistry.KnownGuid(wanted))
+            {
+                Log.LogWarning(
+                    fileName + ": gridPlacementSfx '" + wanted + "' is " +
+                    "neither a custom sound nor a sound id this game has, so " +
+                    "placing the module will be silent.");
             }
         }
 
