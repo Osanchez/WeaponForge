@@ -4,7 +4,7 @@
 
 Weapon Forge clones a real in-game weapon as a starting point, then applies whatever stats you listed in your JSON on top. Everything you *don't* mention keeps the template's value, so a five-line file is a perfectly valid weapon.
 
-Built against **PUNK Playtest v0.12.9**.
+Built against **PUNK Playtest v0.12.11**.
 
 ---
 
@@ -14,10 +14,25 @@ Built against **PUNK Playtest v0.12.9**.
 
 ## Install
 
-1. Copy `WeaponForge.dll` into `...\PUNK Playtest\BepInEx\plugins\` (its own folder is fine).
+### With PUNK Nexus (easiest)
+
+Weapon Forge is listed in [PUNK Nexus](https://github.com/Osanchez/PunkNexus), a mod browser for
+PUNK. Install BepInEx and Weapon Forge from the Mods tab and skip the rest of this section — the
+download is checksum-verified, and the builder pages and the written reference come with it, into
+`BepInEx\plugins\WeaponForge\`.
+
+### By hand
+
+1. Download `WeaponForge-v*.zip` from [Releases](https://github.com/Osanchez/WeaponForge/releases)
+   and extract it **into the game folder** — the zip is rooted at `BepInEx\`, so it merges into
+   place and lands in `BepInEx\plugins\WeaponForge\`.
 2. Run the game once, then close it.
 3. A **`weapons`** folder now sits next to the DLL, containing `README.txt` and several example weapons.
 4. Drop your own `.json` files in there and restart.
+
+> Installing the loose `WeaponForge.dll` straight into `BepInEx\plugins\` still works, and content
+> you already keep there is still found. A folder is tidier: the mod puts `weapons`, `sprites` and
+> `sounds` beside the DLL, which in a shared `plugins\` means beside every other mod's files too.
 
 Your weapons appear as extra choices at the end of the starting-loadout list (past all the question marks if you haven't unlocked much).
 

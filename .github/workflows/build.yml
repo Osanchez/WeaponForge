@@ -30,13 +30,18 @@ on:
     branches: [master, main]
     paths-ignore:
       - '**.md'
-      - '**.txt'
-      - '**.html'
       - '.gitignore'
       - '.gitattributes'
+      # NOTE: .txt and .html used to be ignored here. They are not any more, because the release
+      # zip now ships "HOW TO MAKE WEAPONS.txt" and the two builder pages -- ignoring them would
+      # leave the published download stale against the repo with nothing saying so.
   pull_request:
     branches: [master, main]
   workflow_dispatch:
+
+# The pin step below commits the checksum back to the default branch.
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -45,6 +50,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
@@ -112,3 +119,112 @@ jobs:
           path: WeaponForge/bin/Release/WeaponForge.dll
           if-no-files-found: error
           retention-days: 90
+
+      # ----------------------------------------------------------------- release
+      #
+      # Everything below only runs for a push to the default branch. A pull request from a fork
+      # cannot be allowed to publish a release or push a commit, and a PR build has nothing to
+      # release anyway -- the artifact above is what a reviewer wants.
+
+      - name: Package for PUNK Nexus
+        if: github.event_name != 'pull_request'
+        id: pack
+        shell: pwsh
+        run: |
+          # The client extracts a zip straight into the game folder and then reads
+          # BepInEx/plugins/<pluginFolder>/mod.json back out of it to know what is installed, so the
+          # archive must be rooted at the game folder -- not at the plugin folder.
+          $manifest = Get-Content mod.json -Raw | ConvertFrom-Json
+          $version  = $manifest.version
+          if (-not $version) { throw "mod.json has no 'version'." }
+
+          # The manifest's version is what players see and what the client compares to detect an
+          # update; the assembly's is what actually loaded. Letting them drift means the client
+          # reports a version nobody is running. Cheap to check, invisible when it breaks.
+          $asm = (Select-String -Path WeaponForge\Properties\AssemblyInfo.cs `
+                    -Pattern 'AssemblyVersion\("([0-9]+(\.[0-9]+)*)"\)').Matches[0].Groups[1].Value
+          if ($asm -notlike "$version*") {
+            throw "mod.json version '$version' does not match AssemblyVersion '$asm'. Bump both."
+          }
+
+          $stage = "staging\BepInEx\plugins\WeaponForge"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          Copy-Item WeaponForge\bin\Release\WeaponForge.dll $stage -Force
+          Copy-Item mod.json $stage -Force
+          # The written reference and the two offline builders ship with the mod on purpose: an
+          # install through PUNK Nexus is otherwise a DLL with no way to author anything for it,
+          # and the README's whole workflow starts by opening Weapon Builder.html.
+          Copy-Item "HOW TO MAKE WEAPONS.txt" $stage -Force
+          Copy-Item "Weapon Builder.html" $stage -Force
+          Copy-Item "Sprite Sheet Builder.html" $stage -Force
+
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $zip = "dist\WeaponForge-v$version.zip"
+          Compress-Archive -Path staging\* -DestinationPath $zip -Force
+
+          # Tags are date+run based, not version based: this repo has no version-bump hook, so
+          # tagging by mod version would collide the first time anyone rebuilt without bumping.
+          $tag = "v$(Get-Date -Format 'yyyy.MM.dd').$env:GITHUB_RUN_NUMBER"
+          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "packaged $zip for release $tag"
+
+      - name: Publish Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.pack.outputs.tag }}
+          name: Weapon Forge ${{ steps.pack.outputs.tag }}
+          files: dist/*.zip
+          generate_release_notes: true
+
+      - name: Setup Python
+        if: "${{ github.event_name != 'pull_request' && !contains(github.event.head_commit.message, 'ci: pin download') }}"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # Checksums must be a POST-BUILD step: the thing hashed is the artifact this run just
+      # published. PUNK Nexus refuses an install whose bytes do not match, so this is what makes a
+      # zip swapped at the download url afterwards get rejected instead of installed.
+      #
+      # TWO GUARDS AGAINST AN ENDLESS RELEASE LOOP, because this commit lands on the default branch
+      # and that is what triggers this workflow:
+      #
+      #   1. [skip ci] in the commit message, which stops the push creating a run at all.
+      #   2. The `if:` above and below, which skips this step when the run WAS triggered by that
+      #      commit. Idempotence alone cannot be guard 2 here: a rebuild produces different bytes
+      #      (Compress-Archive stamps timestamps) under a new tag, so "nothing changed" is never
+      #      true and a loop would run forever writing new hashes.
+      - name: Pin download and checksum to this release
+        if: "${{ github.event_name != 'pull_request' && !contains(github.event.head_commit.message, 'ci: pin download') }}"
+        shell: pwsh
+        run: |
+          python tools/pin-download.py --dist dist --tag '${{ steps.pack.outputs.tag }}'
+          if ($LASTEXITCODE -ne 0) { throw "pin-download failed." }
+
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add mod.json
+          if (git diff --cached --quiet) {
+            Write-Host 'mod.json already pinned to this release; nothing to commit.'
+            exit 0
+          }
+          # --no-verify because a commit made by CI must reflect exactly what this step staged. A
+          # pre-commit hook here would edit the tree after the hash was computed; that is not
+          # hypothetical -- it happened on PunkMultiverse, where the build script installed a
+          # version-bump hook into the runner's clone and the pin commit shipped a manifest for a
+          # release that was never built.
+          git commit --no-verify -m 'ci: pin download to ${{ steps.pack.outputs.tag }} [skip ci]'
+
+          # Verify before pushing. The failure this catches is silent by nature: the push succeeds
+          # either way, and the damage only shows up later in a client dialog.
+          $committed = (git show --pretty=format: --name-only HEAD | Where-Object { $_ }) -join ','
+          if ($committed -ne 'mod.json') { throw "pin commit touched '$committed', expected mod.json alone." }
+          $pinned = (Get-Content mod.json -Raw | ConvertFrom-Json).version
+          if ($pinned -ne '${{ steps.pack.outputs.version }}') {
+            throw "mod.json version changed from ${{ steps.pack.outputs.version }} to '$pinned' during the pin."
+          }
+
+          git push origin "HEAD:${{ github.ref_name }}"

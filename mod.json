@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "WeaponForge",
+  "name": "Weapon Forge",
+  "author": "Sugarheady",
+  "version": "1.0.0",
+  "gameVersion": "0.12.11",
+  "description": "Build custom weapons for PUNK from small JSON files — no C#, no compiling. Clones a real in-game weapon as a template and applies your stats on top, plus orbit rings, wave motion, turrets, chain lightning, phasing and sub-emitters.",
+  "category": "Combat",
+  "iconUrl": null,
+  "homepage": "https://github.com/Osanchez/WeaponForge",
+  "tags": [
+    "weapons",
+    "content",
+    "modding"
+  ],
+  "pluginFolder": "WeaponForge",
+  "dependencies": [],
+  "download": {
+    "repo": "Osanchez/WeaponForge",
+    "assetPattern": "WeaponForge-v*.zip"
+  },
+  "sha256": null
+}
