@@ -27,7 +27,7 @@ name: Build WeaponForge
 
 on:
   push:
-    branches: [master, main]
+    branches: [main]
     paths-ignore:
       - '**.md'
       - '.gitignore'
@@ -36,7 +36,7 @@ on:
       # zip now ships "HOW TO MAKE WEAPONS.txt" and the two builder pages -- ignoring them would
       # leave the published download stale against the repo with nothing saying so.
   pull_request:
-    branches: [master, main]
+    branches: [main]
   workflow_dispatch:
 
 # The pin step below commits the checksum back to the default branch.
