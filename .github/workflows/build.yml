@@ -138,14 +138,12 @@ jobs:
           $version  = $manifest.version
           if (-not $version) { throw "mod.json has no 'version'." }
 
-          # The manifest's version is what players see and what the client compares to detect an
-          # update; the assembly's is what actually loaded. Letting them drift means the client
-          # reports a version nobody is running. Cheap to check, invisible when it breaks.
-          $asm = (Select-String -Path WeaponForge\Properties\AssemblyInfo.cs `
-                    -Pattern 'AssemblyVersion\("([0-9]+(\.[0-9]+)*)"\)').Matches[0].Groups[1].Value
-          if ($asm -notlike "$version*") {
-            throw "mod.json version '$version' does not match AssemblyVersion '$asm'. Bump both."
-          }
+          # There is deliberately NO cross-check against AssemblyVersion here. This project versions
+          # by git tag -- V1.0, V2.0, V3.0, V3.1, V4.0, v5.0 -- while AssemblyInfo.cs and the
+          # BepInPlugin attribute have both read 1.0.0 since the first commit and have never moved.
+          # A check against them compares a real version to a frozen constant, so it would fail
+          # every release from v2.0 onward while telling you nothing. mod.json's version is the
+          # source of truth for what the client shows; keep it level with the newest upstream tag.
 
           $stage = "staging\BepInEx\plugins\WeaponForge"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null

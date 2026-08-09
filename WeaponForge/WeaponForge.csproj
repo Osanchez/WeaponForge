@@ -158,11 +158,17 @@
     <Compile Include="ForgeTurret.cs" />
     <Compile Include="ForgeProjectileTracker.cs" />
     <Compile Include="ForgeBeam.cs" />
+    <Compile Include="ForgeBoomerang.cs" />
+    <Compile Include="ForgeBoomerangPatch.cs" />
     <Compile Include="ForgeHoming.cs" />
     <Compile Include="ForgeHomingPatch.cs" />
     <Compile Include="ForgeRicochet.cs" />
     <Compile Include="ForgeRicochetPatch.cs" />
     <Compile Include="ForgeColorLock.cs" />
+    <Compile Include="ForgeDeflect.cs" />
+    <Compile Include="ForgeDeflectPatch.cs" />
+    <Compile Include="ForgeGrowth.cs" />
+    <Compile Include="ForgeGrowthPatch.cs" />
     <Compile Include="ForgeExplosionColor.cs" />
     <Compile Include="ForgeExplosionColorPatch.cs" />
     <Compile Include="ForgeSfxRegistry.cs" />

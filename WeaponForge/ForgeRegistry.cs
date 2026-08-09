@@ -24,6 +24,11 @@ namespace WeaponForge
         public bool inStarter; // show in the new-game loadout list
         public bool inLoot;    // can drop from crates/loot
         public float lootWeight;
+
+        // Which module pools this weapon may drop from, as canonical
+        // DropGroup asset names. null or empty = every pool (the old
+        // all-or-nothing behaviour, still the default).
+        public string[] lootGroups;
         public bool inShop;    // can be bought from the shop
         public float shopPrice;
         public int shopUnlockLevel; // stations to unlock first

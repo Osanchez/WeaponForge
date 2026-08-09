@@ -85,6 +85,46 @@ namespace WeaponForge
             return killed;
         }
 
+        // Hand back the tracked enemy shots within `radius`, REMOVING them from
+        // the list - the caller has taken responsibility for them, whether that
+        // means destroying them or turning them around.
+        //
+        // Separate from DestroyNear because a deflector does not want them
+        // dead: it wants to re-aim them back at whoever fired them, and that
+        // needs the actual Projectile, not a body count.
+        public static int CollectNear(
+            Vector2 pos, float radius, int max, List<Projectile> into)
+        {
+            if (into == null || _live.Count == 0)
+                return 0;
+
+            float sqr = radius * radius;
+            int taken = 0;
+
+            for (int i = _live.Count - 1; i >= 0; i--)
+            {
+                if (max > 0 && taken >= max)
+                    break;
+
+                Projectile p = _live[i];
+
+                if (p == null)
+                {
+                    _live.RemoveAt(i);
+                    continue;
+                }
+
+                if (((Vector2)p.transform.position - pos).sqrMagnitude <= sqr)
+                {
+                    _live.RemoveAt(i);
+                    into.Add(p);
+                    taken++;
+                }
+            }
+
+            return taken;
+        }
+
         public static void Reset()
         {
             _live.Clear();

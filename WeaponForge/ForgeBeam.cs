@@ -153,6 +153,8 @@ namespace WeaponForge
             ApplySprite(fire, spec.spriteName, "sprite", fileName);
             ApplySprite(warmup, spec.warmupSprite, "warmupSprite", fileName);
 
+            bool tiled = false;
+
             if (mode.HasValue)
             {
                 fire.drawMode = mode.Value;
@@ -163,13 +165,63 @@ namespace WeaponForge
                 // size and clips the last one, which is what reads as a stream
                 // of segments travelling down the beam.
                 if (mode.Value == SpriteDrawMode.Tiled)
+                {
                     fire.tileMode = SpriteTileMode.Continuous;
+                    tiled = true;
+
+                    if (string.IsNullOrEmpty(spec.spriteName))
+                    {
+                        Log.LogWarning(
+                            fileName + ": \"tiling\": \"repeat\" with the " +
+                            "TEMPLATE's own beam sprite will look wrong. The " +
+                            "stock beam sprites are 8x8 gradients drawn to be " +
+                            "STRETCHED, so repeating one just makes a stripey " +
+                            "mess. Use \"stretch\", or supply a seamless " +
+                            "\"sprite\" of your own.");
+                    }
+                }
             }
 
             // size.x is rewritten every frame by UpdateVisual, so only y is
             // ours. Read-modify-write because size is a struct property.
+            //
+            // The trap that "repeat" hides: Tiled draw mode fills the size by
+            // repeating in BOTH axes, not just along the beam. So a thickness
+            // taller than the sprite repeats it VERTICALLY and you get two (or
+            // three...) stacked beams instead of one thicker one. In repeat
+            // mode the sprite's own pixel height IS the thickness.
+            float natural = NaturalHeight(fire.sprite);
+
             if (spec.thickness.HasValue)
+            {
+                if (tiled && natural > 0f &&
+                    Mathf.Abs(spec.thickness.Value - natural) > 0.01f)
+                {
+                    Log.LogWarning(
+                        fileName + ": \"thickness\": " + spec.thickness.Value +
+                        " with \"tiling\": \"repeat\" will STACK the sprite " +
+                        Mathf.Max(1f, spec.thickness.Value / natural)
+                            .ToString("0.#") +
+                        " times vertically - that is what looks like two " +
+                        "beams. In repeat mode the thickness comes from the " +
+                        "sprite: this one is " +
+                        (natural * ForgeSpriteLibrary.DefaultPixelsPerUnit)
+                            .ToString("0") +
+                        " px tall, so it wants \"thickness\": " +
+                        natural.ToString("0.##") +
+                        ". Draw the art taller for a thicker beam, or use " +
+                        "\"tiling\": \"stretch\" where thickness is free.");
+                }
+
                 fire.size = new Vector2(fire.size.x, spec.thickness.Value);
+            }
+            else if (tiled && natural > 0f)
+            {
+                // No thickness asked for: match the art exactly so repeat mode
+                // gives one clean row rather than however many the template's
+                // leftover size happened to fit.
+                fire.size = new Vector2(fire.size.x, natural);
+            }
 
             if (warmup != null && spec.warmupThickness.HasValue)
             {
@@ -316,6 +368,16 @@ namespace WeaponForge
 
             _leftPivot[s] = rebuilt;
             return rebuilt;
+        }
+
+        // A sprite's height in WORLD units - what a Tiled renderer treats as
+        // one row.
+        private static float NaturalHeight(Sprite s)
+        {
+            if (s == null || s.pixelsPerUnit <= 0f)
+                return 0f;
+
+            return s.rect.height / s.pixelsPerUnit;
         }
 
         private static SpriteDrawMode? ParseTiling(
